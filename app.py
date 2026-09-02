@@ -17,11 +17,9 @@ with gr.Blocks(title="ScrapeAI • Universal Scraper & RAG") as demo:
         </div>
     """)
 
-# Mount Gradio app onto FastAPI
+# Mount Gradio onto FastAPI
 app = gr.mount_gradio_app(fastapi_app, demo, path="/gradio")
 
 if __name__ == "__main__":
-    import uvicorn
     port = int(os.environ.get("PORT", 7860))
-    host = os.environ.get("HOST", "0.0.0.0")
-    uvicorn.run(app, host=host, port=port)
+    demo.launch(server_name="0.0.0.0", server_port=port)
