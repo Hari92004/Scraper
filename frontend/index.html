@@ -1,0 +1,466 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ScrapeAI • Universal Web Scraper & Hugging Face RAG</title>
+    <meta name="description" content="Universal web scraper + Hugging Face RAG engine. Extract text, tables, links, images, and chat with the webpage live.">
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <!-- FontAwesome 6 Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <div class="app-layout">
+        <!-- DYNAMIC MINI / EXPANDABLE SIDEBAR -->
+        <aside class="sidebar" id="mainSidebar">
+            <div class="sidebar-header">
+                <div class="logo-box">
+                    <div class="logo-icon-wrap" id="logoIconWrap">
+                        <i class="fa-solid fa-spider"></i>
+                    </div>
+                    <div class="logo-text">
+                        <span class="logo-title">Scrape<span class="gradient-text">AI</span></span>
+                        <span class="logo-sub">HUGGING FACE RAG</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SIDEBAR NAV LINKS -->
+            <nav class="sidebar-nav">
+                <a href="#dashboard" class="sidebar-item active" data-view="dashboard" title="Dashboard">
+                    <i class="fa-solid fa-table-columns"></i>
+                    <span class="nav-label">Dashboard</span>
+                </a>
+                <a href="#reader" class="sidebar-item" data-view="tab-article" title="Reader View">
+                    <i class="fa-solid fa-newspaper"></i>
+                    <span class="nav-label">Reader View</span>
+                </a>
+                <a href="#tables" class="sidebar-item" data-view="tab-tables" title="Tables">
+                    <i class="fa-solid fa-table-list"></i>
+                    <span class="nav-label">Tables</span>
+                </a>
+                <a href="#links" class="sidebar-item" data-view="tab-links" title="Links">
+                    <i class="fa-solid fa-link"></i>
+                    <span class="nav-label">Links</span>
+                </a>
+                <a href="#media" class="sidebar-item" data-view="tab-images" title="Media">
+                    <i class="fa-solid fa-images"></i>
+                    <span class="nav-label">Media</span>
+                </a>
+                <a href="#rag" class="sidebar-item" data-view="rag-chat" title="RAG Assistant">
+                    <i class="fa-solid fa-robot"></i>
+                    <span class="nav-label">RAG Assistant</span>
+                </a>
+                <a href="#history" class="sidebar-item" id="sidebarHistoryBtn" title="History">
+                    <i class="fa-solid fa-clock-rotate-left"></i>
+                    <span class="nav-label">History</span>
+                </a>
+                <a href="#settings" class="sidebar-item" id="sidebarSettingsBtn" title="Settings">
+                    <i class="fa-solid fa-gear"></i>
+                    <span class="nav-label">Settings</span>
+                </a>
+            </nav>
+
+            <!-- SOCIAL FOOTER -->
+            <div class="sidebar-socials">
+                <a href="https://github.com" target="_blank" title="GitHub"><i class="fa-brands fa-github"></i></a>
+                <a href="https://twitter.com" target="_blank" title="Twitter"><i class="fa-brands fa-twitter"></i></a>
+                <a href="https://discord.com" target="_blank" title="Discord"><i class="fa-brands fa-discord"></i></a>
+                <a href="https://linkedin.com" target="_blank" title="LinkedIn"><i class="fa-brands fa-linkedin-in"></i></a>
+            </div>
+        </aside>
+
+        <!-- MAIN WRAPPER -->
+        <div class="main-wrapper">
+            <!-- TOP NAVBAR -->
+            <header class="top-nav">
+                <div class="nav-center-tabs">
+                    <button class="top-tab active" data-tab-nav="dashboard">Dashboard</button>
+                    <button class="top-tab" id="topAiModelsTab">AI Models</button>
+                    <button class="top-tab" id="topDocsTab">Docs</button>
+                </div>
+
+                <div class="nav-right-user">
+                    <div class="server-status-pill" id="serverStatus">
+                        <span class="status-dot"></span>
+                        <span class="status-text">Backend Ready</span>
+                    </div>
+                </div>
+            </header>
+
+            <!-- MAIN CONTAINER -->
+            <main class="page-content">
+                <!-- HERO SECTION -->
+                <section class="hero-container">
+                    <div class="hero-left">
+                        <h1 class="hero-headline">
+                            Extract Data from <span class="gradient-text">Any Website</span> in Seconds
+                        </h1>
+                        <p class="hero-description">
+                            Universal web scraper + Hugging Face RAG engine. Extract text, tables, links, images, and chat with the webpage live.
+                        </p>
+                    </div>
+                    <div class="hero-right-illustration">
+                        <div class="glass-mockup">
+                            <div class="mockup-header">
+                                <span class="dot red"></span>
+                                <span class="dot yellow"></span>
+                                <span class="dot green"></span>
+                            </div>
+                            <div class="mockup-body">
+                                <div class="mockup-lines">
+                                    <div class="line l1"></div>
+                                    <div class="line l2"></div>
+                                    <div class="line l3"></div>
+                                    <div class="line l4"></div>
+                                </div>
+                                <div class="floating-badge badge-link"><i class="fa-solid fa-link"></i></div>
+                                <div class="floating-badge badge-table"><i class="fa-solid fa-table"></i></div>
+                                <div class="floating-badge badge-img"><i class="fa-solid fa-image"></i></div>
+                                <div class="floating-badge badge-chat"><i class="fa-solid fa-comment-dots"></i></div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- TWO-COLUMN WORKSPACE: LEFT (SCRAPER + STATS + VIEWER) & RIGHT (RAG ASSISTANT) -->
+                <section class="workspace-grid">
+                    <!-- LEFT COLUMN -->
+                    <div class="workspace-left-col">
+                        <!-- UNIVERSAL SCRAPER SEARCH CARD -->
+                        <div class="scraper-card">
+                            <form id="scrapeForm" class="scraper-input-form">
+                                <div class="input-bar-container">
+                                    <i class="fa-solid fa-globe input-globe-icon"></i>
+                                    <input 
+                                        type="url" 
+                                        id="urlInput" 
+                                        class="main-url-input" 
+                                        placeholder="Enter any website URL..." 
+                                        required 
+                                        autocomplete="off"
+                                    >
+                                    <button type="submit" id="scrapeBtn" class="scrape-action-btn">
+                                        <i class="fa-solid fa-bolt"></i>
+                                        <span>Scrape Page</span>
+                                    </button>
+                                </div>
+
+                                <!-- PRESETS STRIP -->
+                                <div class="presets-row">
+                                    <div class="preset-items-group">
+                                        <span class="presets-label"><i class="fa-solid fa-wand-magic-sparkles"></i> Try Presets:</span>
+                                        <button type="button" class="preset-pill" data-url="https://en.wikipedia.org/wiki/Web_scraping">Wikipedia</button>
+                                        <button type="button" class="preset-pill" data-url="https://news.ycombinator.com">Hacker News</button>
+                                        <button type="button" class="preset-pill" data-url="https://docs.python.org/3/tutorial/">Python Docs</button>
+                                        <button type="button" class="preset-pill" data-url="https://techcrunch.com">TechCrunch</button>
+                                        <button type="button" class="preset-pill" data-url="https://github.com/trending">Blog</button>
+                                    </div>
+                                    <button type="button" id="toggleAdvOptions" class="custom-selector-toggle">
+                                        <i class="fa-solid fa-chevron-down"></i> Custom Selector
+                                    </button>
+                                </div>
+
+                                <!-- ADVANCED CUSTOM SELECTOR DRAWER -->
+                                <div class="advanced-selector-drawer" id="advancedDrawer">
+                                    <div class="custom-input-box">
+                                        <label for="customSelector"><i class="fa-solid fa-code"></i> CSS Selector (Optional):</label>
+                                        <input type="text" id="customSelector" placeholder="e.g. .article-content, table.wikitable, div.product-card">
+                                        <span class="hint-text">Leave blank to automatically extract all structured content, tables, links, and media.</span>
+                                    </div>
+                                </div>
+                            </form>
+
+                            <!-- LIVE PROGRESS BAR -->
+                            <div class="progress-bar-container" id="progressContainer">
+                                <div class="progress-bar-fill" id="progressBar"></div>
+                                <span class="progress-status-label" id="progressText">Connecting to target site...</span>
+                            </div>
+                        </div>
+
+                        <!-- STATS 4-GRID STRIP -->
+                        <div class="stats-row">
+                            <div class="stat-box">
+                                <div class="stat-icon-wrap stat-words"><i class="fa-solid fa-file-lines"></i></div>
+                                <div class="stat-details">
+                                    <h3 class="stat-number" id="statWords">0</h3>
+                                    <span class="stat-name">Words Extracted</span>
+                                </div>
+                            </div>
+                            <div class="stat-box">
+                                <div class="stat-icon-wrap stat-tables"><i class="fa-solid fa-table-cells"></i></div>
+                                <div class="stat-details">
+                                    <h3 class="stat-number" id="statTables">0</h3>
+                                    <span class="stat-name">Tables Found</span>
+                                </div>
+                            </div>
+                            <div class="stat-box">
+                                <div class="stat-icon-wrap stat-links"><i class="fa-solid fa-link"></i></div>
+                                <div class="stat-details">
+                                    <h3 class="stat-number" id="statLinks">0</h3>
+                                    <span class="stat-name">Links Found</span>
+                                </div>
+                            </div>
+                            <div class="stat-box">
+                                <div class="stat-icon-wrap stat-images"><i class="fa-solid fa-box-archive"></i></div>
+                                <div class="stat-details">
+                                    <h3 class="stat-number" id="statImages">0</h3>
+                                    <span class="stat-name">Images Found</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- LEFT VIEWER CARD -->
+                        <div class="viewer-card">
+                            <div class="viewer-top-bar">
+                                <div class="viewer-nav-tabs">
+                                    <button class="v-tab active" data-tab="tab-article">Reader View</button>
+                                    <button class="v-tab" data-tab="tab-tables">Tables ( <span id="tableTabBadge">0</span> )</button>
+                                    <button class="v-tab" data-tab="tab-links">Links ( <span id="linkTabBadge">0</span> )</button>
+                                    <button class="v-tab" data-tab="tab-images">Media ( <span id="imgTabBadge">0</span> )</button>
+                                    <button class="v-tab" data-tab="tab-json">Raw Data</button>
+                                </div>
+
+                                <!-- EXPORT DROPDOWN -->
+                                <div class="export-dropdown-wrap">
+                                    <button class="export-trigger-btn" id="exportBtn">
+                                        <i class="fa-solid fa-arrow-down-to-bracket"></i>
+                                        <span>Export</span>
+                                    </button>
+                                    <div class="export-popover" id="exportMenu">
+                                        <button class="export-opt" data-fmt="json"><i class="fa-solid fa-file-code"></i> JSON Dataset</button>
+                                        <button class="export-opt" data-fmt="csv"><i class="fa-solid fa-file-csv"></i> CSV (Tables/Links)</button>
+                                        <button class="export-opt" data-fmt="markdown"><i class="fa-solid fa-file-lines"></i> Markdown Report</button>
+                                        <button class="export-opt" data-fmt="txt"><i class="fa-regular fa-file-lines"></i> Plain Text</button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- VIEWER CONTENT WRAPPER -->
+                            <div class="viewer-body">
+                                <!-- EMPTY STATE -->
+                                <div class="empty-placeholder" id="emptyState">
+                                    <div class="empty-graphic">
+                                        <div class="empty-book-icon">
+                                            <i class="fa-solid fa-book-open-reader"></i>
+                                        </div>
+                                    </div>
+                                    <h3 class="empty-title">No content extracted yet</h3>
+                                    <p class="empty-text">Enter a website URL above and click "Scrape Page" to see the extracted content here.</p>
+                                </div>
+
+                                <!-- TAB 1: ARTICLE READER VIEW -->
+                                <div class="tab-panel active" id="tab-article">
+                                    <div class="article-header-meta" id="articleMetaHeader" style="display:none;">
+                                        <h2 class="article-main-title" id="articleTitle">Page Title</h2>
+                                        <div class="article-meta-badges">
+                                            <span class="meta-chip" id="articleAuthor"><i class="fa-solid fa-user"></i> Author</span>
+                                            <span class="meta-chip" id="articleSource"><i class="fa-solid fa-globe"></i> Source</span>
+                                            <span class="meta-chip" id="articleDate"><i class="fa-solid fa-calendar"></i> Date</span>
+                                        </div>
+                                    </div>
+                                    <div class="article-content-body" id="articleBody"></div>
+                                </div>
+
+                                <!-- TAB 2: STRUCTURED TABLES -->
+                                <div class="tab-panel" id="tab-tables">
+                                    <div class="tables-view-container" id="tablesContainer">
+                                        <p class="tab-empty-msg">No HTML tables found on this webpage.</p>
+                                    </div>
+                                </div>
+
+                                <!-- TAB 3: EXTRACTED LINKS -->
+                                <div class="tab-panel" id="tab-links">
+                                    <div class="links-search-bar">
+                                        <i class="fa-solid fa-magnifying-glass"></i>
+                                        <input type="text" id="linkSearch" placeholder="Search extracted links or target URLs..." class="link-filter-input">
+                                    </div>
+                                    <div class="links-grid-list" id="linksList"></div>
+                                </div>
+
+                                <!-- TAB 4: EXTRACTED IMAGES -->
+                                <div class="tab-panel" id="tab-images">
+                                    <div class="media-gallery-grid" id="imagesGrid"></div>
+                                </div>
+
+                                <!-- TAB 5: RAW JSON -->
+                                <div class="tab-panel" id="tab-json">
+                                    <div class="json-actions">
+                                        <button class="copy-json-btn" id="copyJsonBtn"><i class="fa-regular fa-copy"></i> Copy JSON</button>
+                                    </div>
+                                    <pre class="raw-code-view"><code id="jsonCode">// Scraped data will be formatted as JSON here...</code></pre>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- RIGHT RAG CHATBOT CARD (HIGH ALIGNMENT) -->
+                    <div class="rag-chat-card">
+                        <!-- CHAT HEADER -->
+                        <div class="rag-header">
+                            <div class="rag-ai-title-group">
+                                <div class="rag-ai-avatar">
+                                    <i class="fa-solid fa-robot"></i>
+                                </div>
+                                <div>
+                                    <h3 class="rag-name">RAG Web Assistant</h3>
+                                    <span class="rag-status-badge" id="chatActiveModel">Offline Mode (Local QA)</span>
+                                </div>
+                            </div>
+                            <button class="clear-convo-btn" id="clearChatBtn" title="Clear Conversation">
+                                <i class="fa-regular fa-trash-can"></i>
+                            </button>
+                        </div>
+
+                        <!-- CHAT MESSAGES STREAM -->
+                        <div class="chat-message-feed" id="chatMessages">
+                            <div class="chat-row bot-row">
+                                <div class="chat-avatar bot-avatar"><i class="fa-solid fa-robot"></i></div>
+                                <div class="chat-speech-bubble">
+                                    <p>👋 <strong>Namaste!</strong> Main aapka <strong>Hugging Face RAG Assistant</strong> hoon.</p>
+                                    <p>Koi bhi website URL scrape karein, phir us content se related koi bhi question yahan poochein (Summary, Facts, Tables, Pricing, etc.).</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- SUGGESTION CHIPS -->
+                        <div class="chat-quick-chips" id="suggestionChips">
+                            <button class="quick-chip" data-prompt="Summarize this page in 3 clear bullet points.">Summarize this page</button>
+                            <button class="quick-chip" data-prompt="What are the key facts and numbers mentioned on this page?">Key facts?</button>
+                            <button class="quick-chip" data-prompt="List all tables and numerical data found on this page.">List all tables</button>
+                            <button class="quick-chip" data-prompt="What are the main points and purpose of this webpage?">What are the main points?</button>
+                        </div>
+
+                        <!-- CHAT INPUT FORM -->
+                        <form id="chatForm" class="chat-input-row">
+                            <input 
+                                type="text" 
+                                id="chatInput" 
+                                class="chat-text-input" 
+                                placeholder="Ask anything about the content..." 
+                                autocomplete="off" 
+                                required
+                            >
+                            <button type="submit" id="sendBtn" class="chat-submit-btn">
+                                <i class="fa-solid fa-paper-plane"></i>
+                            </button>
+                        </form>
+
+                        <div class="chat-footer-note">
+                            <i class="fa-solid fa-shield-halved"></i> Powered by Hugging Face Transformers & Fast Retrieval
+                        </div>
+                    </div>
+                </section>
+
+                <!-- BOTTOM 5 FEATURE CARDS -->
+                <section class="feature-highlights-strip">
+                    <div class="feature-highlight-card">
+                        <div class="feat-icon feat-scraper"><i class="fa-solid fa-expand"></i></div>
+                        <div class="feat-info">
+                            <h4>Universal Scraper</h4>
+                            <p>Extract text, tables, links, images, and metadata from any website.</p>
+                        </div>
+                    </div>
+                    <div class="feature-highlight-card">
+                        <div class="feat-icon feat-rag"><i class="fa-solid fa-comments"></i></div>
+                        <div class="feat-info">
+                            <h4>RAG Chatbot</h4>
+                            <p>Ask questions and get answers grounded in the scraped content.</p>
+                        </div>
+                    </div>
+                    <div class="feature-highlight-card">
+                        <div class="feat-icon feat-models"><i class="fa-solid fa-cube"></i></div>
+                        <div class="feat-info">
+                            <h4>Multiple Models</h4>
+                            <p>Qwen 2.5, Llama 3.2, Mistral 7B, Zephyr 7B, Gemma 2 & more.</p>
+                        </div>
+                    </div>
+                    <div class="feature-highlight-card">
+                        <div class="feat-icon feat-export"><i class="fa-solid fa-right-left"></i></div>
+                        <div class="feat-info">
+                            <h4>Export Anywhere</h4>
+                            <p>Export to CSV, JSON, Markdown, TXT with one click.</p>
+                        </div>
+                    </div>
+                    <div class="feature-highlight-card">
+                        <div class="feat-icon feat-offline"><i class="fa-solid fa-folder-closed"></i></div>
+                        <div class="feat-info">
+                            <h4>Offline Mode</h4>
+                            <p>Zero-key fallback mode works completely offline.</p>
+                        </div>
+                    </div>
+                </section>
+            </main>
+        </div>
+
+        <!-- AI SETTINGS MODAL -->
+        <div class="modal-overlay" id="settingsModal">
+            <div class="modal-window">
+                <div class="modal-window-header">
+                    <h3><i class="fa-solid fa-sliders"></i> AI & Hugging Face Settings</h3>
+                    <button class="modal-close-btn" id="closeSettingsModal"><i class="fa-solid fa-xmark"></i></button>
+                </div>
+                <div class="modal-window-body">
+                    <div class="input-setting-group">
+                        <label for="hfTokenInput">
+                            <i class="fa-solid fa-key"></i> Hugging Face User Access Token (Free)
+                        </label>
+                        <input type="password" id="hfTokenInput" placeholder="hf_xxxxxxxxxxxxxxxxxxxxxxx">
+                        <span class="setting-help-text">
+                            Get your free token from <a href="https://huggingface.co/settings/tokens" target="_blank">huggingface.co/settings/tokens</a> (Read role). If left blank, offline semantic extractor will be used.
+                        </span>
+                    </div>
+
+                    <div class="input-setting-group">
+                        <label for="modelSelect"><i class="fa-solid fa-microchip"></i> Hugging Face LLM Model</label>
+                        <select id="modelSelect" class="dropdown-select">
+                            <option value="Qwen/Qwen2.5-7B-Instruct">Qwen 2.5 (7B Instruct) - Recommended</option>
+                            <option value="meta-llama/Llama-3.2-3B-Instruct">Llama 3.2 (3B Instruct) - Fast</option>
+                            <option value="mistralai/Mistral-7B-Instruct-v0.3">Mistral 7B Instruct</option>
+                            <option value="HuggingFaceH4/zephyr-7b-beta">Zephyr 7B Beta</option>
+                            <option value="google/gemma-2-2b-it">Google Gemma 2 (2B IT)</option>
+                        </select>
+                    </div>
+
+                    <div class="input-setting-group">
+                        <label for="systemPromptInput"><i class="fa-solid fa-terminal"></i> Custom System Prompt</label>
+                        <textarea id="systemPromptInput" rows="3" class="prompt-textarea" placeholder="Enter custom instructions for RAG AI persona..."></textarea>
+                    </div>
+
+                    <div class="setting-notice-box">
+                        <i class="fa-solid fa-circle-info"></i>
+                        <span>Your credentials are stored securely in browser local storage and communicated solely with your local backend.</span>
+                    </div>
+                </div>
+                <div class="modal-window-footer">
+                    <button class="secondary-btn" id="cancelSettingsBtn">Cancel</button>
+                    <button class="primary-gradient-btn" id="saveSettingsBtn">Save Settings</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- HISTORY MODAL -->
+        <div class="modal-overlay" id="historyModal">
+            <div class="modal-window history-window">
+                <div class="modal-window-header">
+                    <h3><i class="fa-solid fa-clock-rotate-left"></i> Scrape History</h3>
+                    <button class="modal-close-btn" id="closeHistoryModal"><i class="fa-solid fa-xmark"></i></button>
+                </div>
+                <div class="modal-window-body">
+                    <div class="history-card-list" id="historyList">
+                        <p class="tab-empty-msg">No previous scrapes saved yet.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- MAIN APP SCRIPT -->
+    <script src="/static/app.js"></script>
+</body>
+</html>

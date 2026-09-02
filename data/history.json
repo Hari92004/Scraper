@@ -1,0 +1,65 @@
+[
+  {
+    "id": "20260902_123606_Trending__repositories_on_GitHub_today_·_GitHub.json",
+    "title": "Trending  repositories on GitHub today · GitHub",
+    "url": "https://github.com/trending",
+    "timestamp": "2026-09-02T12:36:06.665729",
+    "word_count": 394,
+    "tables_count": 0,
+    "filepath": "D:\\Scraper\\data\\20260902_123606_Trending__repositories_on_GitHub_today_·_GitHub.json"
+  },
+  {
+    "id": "20260902_012555_Trending__repositories_on_GitHub_today_·_GitHub.json",
+    "title": "Trending  repositories on GitHub today · GitHub",
+    "url": "https://github.com/trending",
+    "timestamp": "2026-09-02T01:25:55.208912",
+    "word_count": 427,
+    "tables_count": 0,
+    "filepath": "D:\\Scraper\\data\\20260902_012555_Trending__repositories_on_GitHub_today_·_GitHub.json"
+  },
+  {
+    "id": "20260902_012438_Web_scraping_-_Wikipedia.json",
+    "title": "Web scraping - Wikipedia",
+    "url": "https://en.wikipedia.org/wiki/Web_scraping",
+    "timestamp": "2026-09-02T01:24:38.399373",
+    "word_count": 4094,
+    "tables_count": 3,
+    "filepath": "D:\\Scraper\\data\\20260902_012438_Web_scraping_-_Wikipedia.json"
+  },
+  {
+    "id": "20260902_010544_Web_scraping_-_Wikipedia.json",
+    "title": "Web scraping - Wikipedia",
+    "url": "https://en.wikipedia.org/wiki/Web_scraping",
+    "timestamp": "2026-09-02T01:05:44.459090",
+    "word_count": 4094,
+    "tables_count": 3,
+    "filepath": "D:\\Scraper\\data\\20260902_010544_Web_scraping_-_Wikipedia.json"
+  },
+  {
+    "id": "20260902_010317_Web_scraping_-_Wikipedia.json",
+    "title": "Web scraping - Wikipedia",
+    "url": "https://en.wikipedia.org/wiki/Web_scraping",
+    "timestamp": "2026-09-02T01:03:17.683496",
+    "word_count": 4094,
+    "tables_count": 3,
+    "filepath": "D:\\Scraper\\data\\20260902_010317_Web_scraping_-_Wikipedia.json"
+  },
+  {
+    "id": "20260902_003512_Web_scraping_-_Wikipedia.json",
+    "title": "Web scraping - Wikipedia",
+    "url": "https://en.wikipedia.org/wiki/Web_scraping",
+    "timestamp": "2026-09-02T00:35:12.803135",
+    "word_count": 4094,
+    "tables_count": 3,
+    "filepath": "D:\\Scraper\\data\\20260902_003512_Web_scraping_-_Wikipedia.json"
+  },
+  {
+    "id": "20260902_003301_Web_scraping_-_Wikipedia.json",
+    "title": "Web scraping - Wikipedia",
+    "url": "https://en.wikipedia.org/wiki/Web_scraping",
+    "timestamp": "2026-09-02T00:33:01.015050",
+    "word_count": 4094,
+    "tables_count": 3,
+    "filepath": "d:\\Scraper\\data\\20260902_003301_Web_scraping_-_Wikipedia.json"
+  }
+]
