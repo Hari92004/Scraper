@@ -1,10 +1,15 @@
-"""
-Hugging Face Spaces Entry Point
-Serves the FastAPI ScrapeAI Dashboard and RAG Assistant directly.
-"""
-
 import os
 import uvicorn
+
+# Satisfy Hugging Face ZeroGPU supervisor if running on ZERO hardware
+try:
+    import spaces
+    @spaces.GPU
+    def check_gpu():
+        return True
+except Exception:
+    pass
+
 from backend.server import app
 
 if __name__ == "__main__":
