@@ -13,3 +13,4 @@ numpy>=1.26.0
 pydantic>=2.6.0
 python-multipart>=0.0.9
 aiofiles>=23.2.1
+gradio>=4.20.0
