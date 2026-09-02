@@ -1,3 +1,17 @@
+---
+title: Scraper
+emoji: 🕷️
+colorFrom: purple
+colorTo: blue
+sdk: gradio
+sdk_version: 6.26.0
+python_version: '3.10'
+app_file: app.py
+pinned: false
+license: mit
+short_description: Universal Web Scraper & Hugging Face RAG Chatbot
+---
+
 # 🕷️ ScrapeAI • Universal Web Scraper & Hugging Face RAG Chatbot
 
 An end-to-end, production-ready Web Scraping & RAG (Retrieval-Augmented Generation) platform. Extract clean text, metadata, structured tables, links, and media from **any website URL**, explore data in a modern glassmorphic dashboard, export to CSV/JSON/Markdown, and interactively query the scraped content using an embedded **Hugging Face RAG AI Assistant**.
