@@ -1,25 +1,13 @@
 """
 Hugging Face Spaces Entry Point
-Serves the FastAPI ScrapeAI Dashboard with full Gradio Spaces compatibility.
+Serves the FastAPI ScrapeAI Dashboard and RAG Assistant directly.
 """
 
 import os
-import gradio as gr
-from backend.server import app as fastapi_app
-
-# Gradio container
-with gr.Blocks(title="ScrapeAI • Universal Scraper & RAG") as demo:
-    gr.HTML("""
-        <meta http-equiv="refresh" content="0; url=/" />
-        <div style="text-align:center; padding: 2rem; font-family: sans-serif;">
-            <h2>Loading ScrapeAI Web Dashboard...</h2>
-            <p>If not redirected automatically, <a href="/" target="_self">click here to open ScrapeAI</a>.</p>
-        </div>
-    """)
-
-# Mount Gradio onto FastAPI
-app = gr.mount_gradio_app(fastapi_app, demo, path="/gradio")
+import uvicorn
+from backend.server import app
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 7860))
-    demo.launch(server_name="0.0.0.0", server_port=port)
+    print(f">> Launching ScrapeAI on Hugging Face Spaces (Port: {port})...")
+    uvicorn.run(app, host="0.0.0.0", port=port)
