@@ -123,10 +123,6 @@ const dom = {
     // Nav Triggers
     sidebarSettingsBtn: document.getElementById('sidebarSettingsBtn'),
     sidebarHistoryBtn: document.getElementById('sidebarHistoryBtn'),
-    topSettingsTab: document.getElementById('topSettingsTab'),
-    topHistoryTab: document.getElementById('topHistoryTab'),
-    topAiModelsTab: document.getElementById('topAiModelsTab'),
-    topDocsTab: document.getElementById('topDocsTab'),
     serverStatus: document.getElementById('serverStatus'),
     sidebarItems: document.querySelectorAll('.sidebar-item'),
     topTabs: document.querySelectorAll('.top-tab')
