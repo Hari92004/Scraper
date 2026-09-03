@@ -104,18 +104,31 @@ Open your browser and visit: **`http://localhost:8000`**
 
 ## 💻 CLI Mode (Terminal Usage)
 
-You can also scrape websites and query the RAG engine directly from your terminal:
+You can scrape single websites or continuous batches with rotating proxies directly from your terminal:
 
 ```bash
-# Scrape a URL and save dataset
-python main.py --cli --url "https://en.wikipedia.org/wiki/Artificial_intelligence"
+# 1. Scrape a single URL with an optional proxy
+python main.py --cli --url "https://en.wikipedia.org/wiki/Web_scraping" --proxy "http://127.0.0.1:8080"
 
-# Scrape and export tables to CSV
-python main.py --cli --url "https://en.wikipedia.org/wiki/Web_scraping" --export csv
+# 2. Continuous Multi-Website Batch Scraping with Rotating Proxy Pool
+python main.py --cli --urls "https://en.wikipedia.org/wiki/Web_scraping,https://news.ycombinator.com" --proxies "http://127.0.0.1:8080,socks5://127.0.0.1:9050" --delay 1.5 --export csv
 
-# Scrape and ask a question directly using RAG
+# 3. Batch Scrape from URLs file and Proxies file
+python main.py --cli --urls-file urls.txt --proxies-file proxies.txt --continuous --export csv
+
+# 4. Scrape and ask a question directly using RAG
 python main.py --cli --url "https://en.wikipedia.org/wiki/Web_scraping" --query "What are common techniques in web scraping?"
 ```
+
+---
+
+## 🛡️ Proxy Configuration & Supported Formats
+
+ScrapeAI supports **HTTP, HTTPS, SOCKS4, and SOCKS5** proxies with automatic rotation:
+- **Single Proxy / Gateway format**: `http://username:password@ip_or_host:port` or `socks5://127.0.0.1:9050`
+- **Proxy Pool List**: Supply multiple proxies (one per line) via Web UI or `--proxies` / `--proxies-file`.
+- **Live Proxy Testing**: Click **Test** in the Web UI or send `POST /api/proxy/test` to verify public IP and latency.
+- **Environment Variable Fallback**: Set `SCRAPER_PROXY` or `SCRAPER_PROXIES` in your environment.
 
 ---
 

@@ -33,7 +33,6 @@ def save_scrape_session(data: Dict[str, Any]) -> str:
     with open(filepath, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
 
-    # Append to history
     append_to_history({
         "id": filename,
         "title": title,
@@ -41,6 +40,29 @@ def save_scrape_session(data: Dict[str, Any]) -> str:
         "timestamp": datetime.now().isoformat(),
         "word_count": data.get("stats", {}).get("word_count", 0),
         "tables_count": data.get("stats", {}).get("table_count", 0),
+        "filepath": filepath
+    })
+
+    return filename
+
+
+def save_batch_session(batch_data: Dict[str, Any]) -> str:
+    """Save full batch scrape results to a JSON file and append to history."""
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    total = batch_data.get("total_urls", 0)
+    filename = f"{timestamp}_batch_{total}_sites.json"
+    filepath = os.path.join(DATA_DIR, filename)
+
+    with open(filepath, "w", encoding="utf-8") as f:
+        json.dump(batch_data, f, ensure_ascii=False, indent=2)
+
+    append_to_history({
+        "id": filename,
+        "title": f"Batch Scrape ({batch_data.get('success_count', 0)}/{total} Sites)",
+        "url": f"{total} target websites",
+        "timestamp": datetime.now().isoformat(),
+        "word_count": batch_data.get("stats", {}).get("total_words", 0),
+        "tables_count": batch_data.get("stats", {}).get("total_tables", 0),
         "filepath": filepath
     })
 
@@ -57,7 +79,6 @@ def append_to_history(entry: Dict[str, Any]):
         except Exception:
             history = []
 
-    # Prepend new item, keep last 50
     history.insert(0, entry)
     history = history[:50]
 
@@ -84,7 +105,6 @@ def export_to_csv(data: Dict[str, Any]) -> str:
 
     tables = data.get("tables", [])
     if tables:
-        # Export the first or combined tables
         all_rows = []
         for t_idx, tbl in enumerate(tables):
             headers = tbl.get("headers", [])
@@ -100,16 +120,50 @@ def export_to_csv(data: Dict[str, Any]) -> str:
             df.to_csv(filepath, index=False, encoding="utf-8-sig")
             return filepath
 
-    # If no tables, export links as CSV
     links = data.get("links", [])
     if links:
         df = pd.DataFrame(links)
         df.to_csv(filepath, index=False, encoding="utf-8-sig")
         return filepath
 
-    # Fallback to metadata CSV
     meta = data.get("metadata", {})
     df = pd.DataFrame([meta])
+    df.to_csv(filepath, index=False, encoding="utf-8-sig")
+    return filepath
+
+
+def export_batch_to_csv(batch_data: Dict[str, Any]) -> str:
+    """Export consolidated multi-website data to CSV."""
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    filepath = os.path.join(DATA_DIR, f"{timestamp}_batch_export.csv")
+
+    rows = []
+    for item in batch_data.get("results", []):
+        url = item.get("url", "")
+        status = item.get("status", "")
+        duration = item.get("duration", 0)
+        proxy = item.get("proxy") or "Direct"
+        data = item.get("data") or {}
+        meta = data.get("metadata", {})
+        article = data.get("article", {})
+        stats = data.get("stats", {})
+
+        rows.append({
+            "Target_URL": url,
+            "Status": status,
+            "Duration_Seconds": duration,
+            "Proxy_Used": proxy,
+            "Title": meta.get("title") or article.get("title", ""),
+            "Author": meta.get("author") or article.get("author", ""),
+            "Words_Extracted": stats.get("word_count", 0),
+            "Tables_Extracted": stats.get("table_count", 0),
+            "Links_Extracted": stats.get("link_count", 0),
+            "Images_Extracted": stats.get("image_count", 0),
+            "Article_Excerpt": (article.get("text", "")[:300] + "...") if article.get("text") else "",
+            "Error": item.get("error", "")
+        })
+
+    df = pd.DataFrame(rows)
     df.to_csv(filepath, index=False, encoding="utf-8-sig")
     return filepath
 
@@ -134,7 +188,6 @@ def export_to_markdown(data: Dict[str, Any]) -> str:
     md.append("## Article Content\n")
     md.append(data.get("article", {}).get("text", "") + "\n")
 
-    # Tables
     tables = data.get("tables", [])
     if tables:
         md.append("## Extracted Tables\n")
@@ -148,7 +201,6 @@ def export_to_markdown(data: Dict[str, Any]) -> str:
                 md.append("| " + " | ".join(str(cell).replace("|", "\\|") for cell in r) + " |")
             md.append("\n")
 
-    # Links
     links = data.get("links", [])
     if links:
         md.append("## Extracted Links (First 30)\n")

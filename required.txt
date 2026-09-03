@@ -1,0 +1,10 @@
+i want to make peoject for webscraping to extract the required information from the website ...so make a website and web scraping script to extract the required information from the website ...make it in my given file name for that 
+1. HTML structure
+2. CSS style
+3. JavaScript to extract data
+4. Python script to save data
+
+and another one thing is that make rag for it /chat bot for it and also plan to deploy that on git hub and render and vercel/netlify 
+
+
+so themain topic is to know how to perform the webscraping from different website ok ........instaed of making won website we can apply it fo rany ither website by just put teh website link

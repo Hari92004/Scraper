@@ -1,18 +1,23 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ScrapeAI • Universal Web Scraper & Hugging Face RAG</title>
-    <meta name="description" content="Universal web scraper + Hugging Face RAG engine. Extract text, tables, links, images, and chat with the webpage live.">
+    <title>ScrapeAI • Universal Multi-Website Web Scraper & Hugging Face RAG</title>
+    <meta name="description"
+        content="Universal web scraper + Hugging Face RAG engine with continuous multi-website scraping & rotating proxy support.">
     <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap"
+        rel="stylesheet">
     <!-- FontAwesome 6 Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-    <link rel="stylesheet" href="/static/style.css">
+    <link rel="stylesheet" href="/static/style.css?v=2.0">
 </head>
+
 <body>
     <div class="app-layout">
         <!-- DYNAMIC MINI / EXPANDABLE SIDEBAR -->
@@ -24,7 +29,7 @@
                     </div>
                     <div class="logo-text">
                         <span class="logo-title">Scrape<span class="gradient-text">AI</span></span>
-                        <span class="logo-sub">HUGGING FACE RAG</span>
+                        <span class="logo-sub">MULTI-SITE & PROXY RAG</span>
                     </div>
                 </div>
             </div>
@@ -38,6 +43,10 @@
                 <a href="#reader" class="sidebar-item" data-view="tab-article" title="Reader View">
                     <i class="fa-solid fa-newspaper"></i>
                     <span class="nav-label">Reader View</span>
+                </a>
+                <a href="#batch-view" class="sidebar-item" data-view="tab-batch" title="Batch Sites">
+                    <i class="fa-solid fa-layer-group"></i>
+                    <span class="nav-label">Batch Results</span>
                 </a>
                 <a href="#tables" class="sidebar-item" data-view="tab-tables" title="Tables">
                     <i class="fa-solid fa-table-list"></i>
@@ -70,7 +79,8 @@
                 <a href="https://github.com" target="_blank" title="GitHub"><i class="fa-brands fa-github"></i></a>
                 <a href="https://twitter.com" target="_blank" title="Twitter"><i class="fa-brands fa-twitter"></i></a>
                 <a href="https://discord.com" target="_blank" title="Discord"><i class="fa-brands fa-discord"></i></a>
-                <a href="https://linkedin.com" target="_blank" title="LinkedIn"><i class="fa-brands fa-linkedin-in"></i></a>
+                <a href="https://linkedin.com" target="_blank" title="LinkedIn"><i
+                        class="fa-brands fa-linkedin-in"></i></a>
             </div>
         </aside>
 
@@ -98,10 +108,10 @@
                 <section class="hero-container">
                     <div class="hero-left">
                         <h1 class="hero-headline">
-                            Extract Data from <span class="gradient-text">Any Website</span> in Seconds
+                            Extract Data from <span class="gradient-text">Multiple Websites</span> with Rotating Proxies
                         </h1>
                         <p class="hero-description">
-                            Universal web scraper + Hugging Face RAG engine. Extract text, tables, links, images, and chat with the webpage live.
+                            Universal scraper with continuous multi-URL batching, automatic proxy pool rotation (HTTP/SOCKS5), and interactive Hugging Face RAG AI chatbot.
                         </p>
                     </div>
                     <div class="hero-right-illustration">
@@ -133,17 +143,28 @@
                     <div class="workspace-left-col">
                         <!-- UNIVERSAL SCRAPER SEARCH CARD -->
                         <div class="scraper-card">
+                            <!-- MODE SWITCHER -->
+                            <div class="scraper-mode-bar">
+                                <div class="mode-pill-group">
+                                    <button type="button" class="mode-btn active" id="modeSingleBtn">
+                                        <i class="fa-solid fa-globe"></i> Single URL
+                                    </button>
+                                    <button type="button" class="mode-btn" id="modeBatchBtn">
+                                        <i class="fa-solid fa-layer-group"></i> Multi-Site Continuous Batch
+                                    </button>
+                                </div>
+                                <div class="proxy-quick-status" id="proxyStatusBadge">
+                                    <i class="fa-solid fa-shield-halved"></i>
+                                    <span id="proxyStatusText">Direct (No Proxy)</span>
+                                </div>
+                            </div>
+
+                            <!-- SINGLE URL FORM -->
                             <form id="scrapeForm" class="scraper-input-form">
                                 <div class="input-bar-container">
                                     <i class="fa-solid fa-globe input-globe-icon"></i>
-                                    <input 
-                                        type="url" 
-                                        id="urlInput" 
-                                        class="main-url-input" 
-                                        placeholder="Enter any website URL..." 
-                                        required 
-                                        autocomplete="off"
-                                    >
+                                    <input type="url" id="urlInput" class="main-url-input"
+                                        placeholder="Enter any website URL (e.g. https://example.com)..." required autocomplete="off">
                                     <button type="submit" id="scrapeBtn" class="scrape-action-btn">
                                         <i class="fa-solid fa-bolt"></i>
                                         <span>Scrape Page</span>
@@ -158,20 +179,86 @@
                                         <button type="button" class="preset-pill" data-url="https://news.ycombinator.com">Hacker News</button>
                                         <button type="button" class="preset-pill" data-url="https://docs.python.org/3/tutorial/">Python Docs</button>
                                         <button type="button" class="preset-pill" data-url="https://techcrunch.com">TechCrunch</button>
-                                        <button type="button" class="preset-pill" data-url="https://github.com/trending">Blog</button>
                                     </div>
                                     <button type="button" id="toggleAdvOptions" class="custom-selector-toggle">
-                                        <i class="fa-solid fa-chevron-down"></i> Custom Selector
+                                        <i class="fa-solid fa-sliders"></i> Options & Proxy
                                     </button>
                                 </div>
 
-                                <!-- ADVANCED CUSTOM SELECTOR DRAWER -->
+                                <!-- ADVANCED DRAWER FOR SINGLE URL -->
                                 <div class="advanced-selector-drawer" id="advancedDrawer">
-                                    <div class="custom-input-box">
-                                        <label for="customSelector"><i class="fa-solid fa-code"></i> CSS Selector (Optional):</label>
-                                        <input type="text" id="customSelector" placeholder="e.g. .article-content, table.wikitable, div.product-card">
-                                        <span class="hint-text">Leave blank to automatically extract all structured content, tables, links, and media.</span>
+                                    <div class="advanced-drawer-grid">
+                                        <div class="custom-input-box">
+                                            <label for="customSelector"><i class="fa-solid fa-code"></i> CSS Selector (Optional):</label>
+                                            <input type="text" id="customSelector" placeholder="e.g. .article-content, table.wikitable">
+                                            <span class="hint-text">Leave blank to extract all structured content, tables & links.</span>
+                                        </div>
+                                        <div class="custom-input-box">
+                                            <label for="proxyInput"><i class="fa-solid fa-shield-halved"></i> Proxy Server (Optional):</label>
+                                            <div class="input-with-action">
+                                                <input type="text" id="proxyInput" placeholder="http://127.0.0.1:8080 or socks5://user:pass@host:port">
+                                                <button type="button" class="mini-test-btn" id="testProxyBtn" title="Test proxy connection">Test</button>
+                                            </div>
+                                            <span class="hint-text">HTTP, HTTPS, or SOCKS5 proxy to route requests.</span>
+                                        </div>
                                     </div>
+                                </div>
+                            </form>
+
+                            <!-- MULTI-SITE BATCH FORM -->
+                            <form id="batchScrapeForm" class="batch-input-form" style="display:none;">
+                                <div class="batch-urls-container">
+                                    <label for="batchUrlsInput">
+                                        <i class="fa-solid fa-list-check"></i> Target Website URLs (One URL per line):
+                                    </label>
+                                    <textarea id="batchUrlsInput" rows="4" class="batch-textarea" placeholder="https://en.wikipedia.org/wiki/Web_scraping&#10;https://news.ycombinator.com&#10;https://docs.python.org/3/tutorial/"></textarea>
+                                </div>
+
+                                <div class="batch-options-grid">
+                                    <div class="custom-input-box">
+                                        <label for="batchProxiesInput">
+                                            <i class="fa-solid fa-arrows-rotate"></i> Proxy Pool List (Optional - Rotating):
+                                        </label>
+                                        <textarea id="batchProxiesInput" rows="3" class="batch-textarea" placeholder="http://127.0.0.1:8080&#10;socks5://user:pass@1.2.3.4:1080&#10;http://proxy.service.com:3128"></textarea>
+                                        <div class="proxy-action-strip">
+                                            <span class="hint-text">Rotates proxies across websites continuously.</span>
+                                            <button type="button" class="preset-pill text-btn" id="loadTestProxyBtn">
+                                                <i class="fa-solid fa-flask"></i> Fill Free Test Proxy
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    <div class="batch-controls-col">
+                                        <div class="control-pair">
+                                            <label for="proxyRotationSelect"><i class="fa-solid fa-shuffle"></i> Rotation Strategy:</label>
+                                            <select id="proxyRotationSelect" class="dropdown-select">
+                                                <option value="round-robin">Round-Robin (Sequential)</option>
+                                                <option value="random">Random Proxy Selection</option>
+                                            </select>
+                                        </div>
+                                        <div class="control-pair">
+                                            <label for="throttleDelayInput"><i class="fa-solid fa-stopwatch"></i> Request Delay (Throttle):</label>
+                                            <div class="range-wrap">
+                                                <input type="range" id="throttleDelayInput" min="0" max="5" step="0.5" value="1.0">
+                                                <span id="delayValLabel" class="delay-badge">1.0s</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="batch-actions-row">
+                                    <div class="sample-urls-group">
+                                        <button type="button" class="preset-pill" id="loadSampleBatchBtn">
+                                            <i class="fa-solid fa-plus"></i> Load 3 Sample Sites
+                                        </button>
+                                        <button type="button" class="preset-pill" id="testBatchProxyBtn">
+                                            <i class="fa-solid fa-vial-circle-check"></i> Test Proxy Pool
+                                        </button>
+                                    </div>
+                                    <button type="submit" id="batchScrapeBtn" class="scrape-action-btn primary-glow">
+                                        <i class="fa-solid fa-play"></i>
+                                        <span>Start Continuous Batch Scrape</span>
+                                    </button>
                                 </div>
                             </form>
 
@@ -219,9 +306,10 @@
                             <div class="viewer-top-bar">
                                 <div class="viewer-nav-tabs">
                                     <button class="v-tab active" data-tab="tab-article">Reader View</button>
-                                    <button class="v-tab" data-tab="tab-tables">Tables ( <span id="tableTabBadge">0</span> )</button>
-                                    <button class="v-tab" data-tab="tab-links">Links ( <span id="linkTabBadge">0</span> )</button>
-                                    <button class="v-tab" data-tab="tab-images">Media ( <span id="imgTabBadge">0</span> )</button>
+                                    <button class="v-tab" data-tab="tab-batch">Batch Results (<span id="batchTabBadge">0</span>)</button>
+                                    <button class="v-tab" data-tab="tab-tables">Tables (<span id="tableTabBadge">0</span>)</button>
+                                    <button class="v-tab" data-tab="tab-links">Links (<span id="linkTabBadge">0</span>)</button>
+                                    <button class="v-tab" data-tab="tab-images">Media (<span id="imgTabBadge">0</span>)</button>
                                     <button class="v-tab" data-tab="tab-json">Raw Data</button>
                                 </div>
 
@@ -233,7 +321,7 @@
                                     </button>
                                     <div class="export-popover" id="exportMenu">
                                         <button class="export-opt" data-fmt="json"><i class="fa-solid fa-file-code"></i> JSON Dataset</button>
-                                        <button class="export-opt" data-fmt="csv"><i class="fa-solid fa-file-csv"></i> CSV (Tables/Links)</button>
+                                        <button class="export-opt" data-fmt="csv"><i class="fa-solid fa-file-csv"></i> CSV (Tables / Batch)</button>
                                         <button class="export-opt" data-fmt="markdown"><i class="fa-solid fa-file-lines"></i> Markdown Report</button>
                                         <button class="export-opt" data-fmt="txt"><i class="fa-regular fa-file-lines"></i> Plain Text</button>
                                     </div>
@@ -250,7 +338,7 @@
                                         </div>
                                     </div>
                                     <h3 class="empty-title">No content extracted yet</h3>
-                                    <p class="empty-text">Enter a website URL above and click "Scrape Page" to see the extracted content here.</p>
+                                    <p class="empty-text">Enter a website URL above or launch a continuous batch scrape to inspect extracted data.</p>
                                 </div>
 
                                 <!-- TAB 1: ARTICLE READER VIEW -->
@@ -261,36 +349,47 @@
                                             <span class="meta-chip" id="articleAuthor"><i class="fa-solid fa-user"></i> Author</span>
                                             <span class="meta-chip" id="articleSource"><i class="fa-solid fa-globe"></i> Source</span>
                                             <span class="meta-chip" id="articleDate"><i class="fa-solid fa-calendar"></i> Date</span>
+                                            <span class="meta-chip meta-chip-proxy" id="articleProxy" style="display:none;"><i class="fa-solid fa-shield-halved"></i> <span id="articleProxyText">Proxy</span></span>
                                         </div>
                                     </div>
                                     <div class="article-content-body" id="articleBody"></div>
                                 </div>
 
-                                <!-- TAB 2: STRUCTURED TABLES -->
+                                <!-- TAB 2: BATCH SITES RESULTS TABLE -->
+                                <div class="tab-panel" id="tab-batch">
+                                    <div class="batch-results-wrap" id="batchContainer">
+                                        <p class="tab-empty-msg">No multi-website batch scraped yet. Switch to Batch Mode above to scrape multiple sites continuously.</p>
+                                    </div>
+                                </div>
+
+                                <!-- TAB 3: STRUCTURED TABLES -->
                                 <div class="tab-panel" id="tab-tables">
                                     <div class="tables-view-container" id="tablesContainer">
                                         <p class="tab-empty-msg">No HTML tables found on this webpage.</p>
                                     </div>
                                 </div>
 
-                                <!-- TAB 3: EXTRACTED LINKS -->
+                                <!-- TAB 4: EXTRACTED LINKS -->
                                 <div class="tab-panel" id="tab-links">
                                     <div class="links-search-bar">
                                         <i class="fa-solid fa-magnifying-glass"></i>
-                                        <input type="text" id="linkSearch" placeholder="Search extracted links or target URLs..." class="link-filter-input">
+                                        <input type="text" id="linkSearch"
+                                            placeholder="Search extracted links or target URLs..."
+                                            class="link-filter-input">
                                     </div>
                                     <div class="links-grid-list" id="linksList"></div>
                                 </div>
 
-                                <!-- TAB 4: EXTRACTED IMAGES -->
+                                <!-- TAB 5: EXTRACTED IMAGES -->
                                 <div class="tab-panel" id="tab-images">
                                     <div class="media-gallery-grid" id="imagesGrid"></div>
                                 </div>
 
-                                <!-- TAB 5: RAW JSON -->
+                                <!-- TAB 6: RAW JSON -->
                                 <div class="tab-panel" id="tab-json">
                                     <div class="json-actions">
-                                        <button class="copy-json-btn" id="copyJsonBtn"><i class="fa-regular fa-copy"></i> Copy JSON</button>
+                                        <button class="copy-json-btn" id="copyJsonBtn"><i
+                                                class="fa-regular fa-copy"></i> Copy JSON</button>
                                     </div>
                                     <pre class="raw-code-view"><code id="jsonCode">// Scraped data will be formatted as JSON here...</code></pre>
                                 </div>
@@ -322,36 +421,34 @@
                                 <div class="chat-avatar bot-avatar"><i class="fa-solid fa-robot"></i></div>
                                 <div class="chat-speech-bubble">
                                     <p>👋 <strong>Namaste!</strong> Main aapka <strong>Hugging Face RAG Assistant</strong> hoon.</p>
-                                    <p>Koi bhi website URL scrape karein, phir us content se related koi bhi question yahan poochein (Summary, Facts, Tables, Pricing, etc.).</p>
+                                    <p>Single URL ya multi-website batch scrape karein with proxy, phir yahan question poochein (Summary, Comparisons, Facts, Pricing, etc.).</p>
                                 </div>
                             </div>
                         </div>
 
                         <!-- SUGGESTION CHIPS -->
                         <div class="chat-quick-chips" id="suggestionChips">
-                            <button class="quick-chip" data-prompt="Summarize this page in 3 clear bullet points.">Summarize this page</button>
-                            <button class="quick-chip" data-prompt="What are the key facts and numbers mentioned on this page?">Key facts?</button>
-                            <button class="quick-chip" data-prompt="List all tables and numerical data found on this page.">List all tables</button>
-                            <button class="quick-chip" data-prompt="What are the main points and purpose of this webpage?">What are the main points?</button>
+                            <button class="quick-chip"
+                                data-prompt="Summarize the scraped content in 3 clear bullet points.">Summarize content</button>
+                            <button class="quick-chip"
+                                data-prompt="What are the key facts, numbers, and comparisons mentioned?">Key facts & stats</button>
+                            <button class="quick-chip"
+                                data-prompt="List all tables and numerical data found.">List all tables</button>
+                            <button class="quick-chip"
+                                data-prompt="What are the main differences across the scraped websites?">Compare websites</button>
                         </div>
 
                         <!-- CHAT INPUT FORM -->
                         <form id="chatForm" class="chat-input-row">
-                            <input 
-                                type="text" 
-                                id="chatInput" 
-                                class="chat-text-input" 
-                                placeholder="Ask anything about the content..." 
-                                autocomplete="off" 
-                                required
-                            >
+                            <input type="text" id="chatInput" class="chat-text-input"
+                                placeholder="Ask anything about the scraped websites..." autocomplete="off" required>
                             <button type="submit" id="sendBtn" class="chat-submit-btn">
                                 <i class="fa-solid fa-paper-plane"></i>
                             </button>
                         </form>
 
                         <div class="chat-footer-note">
-                            <i class="fa-solid fa-shield-halved"></i> Powered by Hugging Face Transformers & Fast Retrieval
+                            <i class="fa-solid fa-shield-halved"></i> Powered by Hugging Face Transformers & Semantic Retrieval
                         </div>
                     </div>
                 </section>
@@ -359,17 +456,17 @@
                 <!-- BOTTOM 5 FEATURE CARDS -->
                 <section class="feature-highlights-strip">
                     <div class="feature-highlight-card">
-                        <div class="feat-icon feat-scraper"><i class="fa-solid fa-expand"></i></div>
+                        <div class="feat-icon feat-scraper"><i class="fa-solid fa-arrows-rotate"></i></div>
                         <div class="feat-info">
-                            <h4>Universal Scraper</h4>
-                            <p>Extract text, tables, links, images, and metadata from any website.</p>
+                            <h4>Proxy Pool & Rotation</h4>
+                            <p>Continuous multi-site scraping with automatic HTTP/SOCKS5 failover.</p>
                         </div>
                     </div>
                     <div class="feature-highlight-card">
                         <div class="feat-icon feat-rag"><i class="fa-solid fa-comments"></i></div>
                         <div class="feat-info">
-                            <h4>RAG Chatbot</h4>
-                            <p>Ask questions and get answers grounded in the scraped content.</p>
+                            <h4>Multi-Site RAG AI</h4>
+                            <p>Query aggregated content from dozens of websites simultaneously.</p>
                         </div>
                     </div>
                     <div class="feature-highlight-card">
@@ -382,8 +479,8 @@
                     <div class="feature-highlight-card">
                         <div class="feat-icon feat-export"><i class="fa-solid fa-right-left"></i></div>
                         <div class="feat-info">
-                            <h4>Export Anywhere</h4>
-                            <p>Export to CSV, JSON, Markdown, TXT with one click.</p>
+                            <h4>Consolidated Export</h4>
+                            <p>Export single or batch datasets to CSV, JSON, Markdown, and TXT.</p>
                         </div>
                     </div>
                     <div class="feature-highlight-card">
@@ -401,17 +498,29 @@
         <div class="modal-overlay" id="settingsModal">
             <div class="modal-window">
                 <div class="modal-window-header">
-                    <h3><i class="fa-solid fa-sliders"></i> AI & Hugging Face Settings</h3>
+                    <h3><i class="fa-solid fa-sliders"></i> AI & Proxy Settings</h3>
                     <button class="modal-close-btn" id="closeSettingsModal"><i class="fa-solid fa-xmark"></i></button>
                 </div>
                 <div class="modal-window-body">
+                    <div class="input-setting-group">
+                        <label for="apiUrlInput">
+                            <i class="fa-solid fa-server"></i> Backend API Base URL (Render / Cloud)
+                        </label>
+                        <input type="text" id="apiUrlInput" placeholder="e.g. https://your-scraper-app.onrender.com (leave blank if hosted together)">
+                        <span class="setting-help-text">
+                            If your frontend is hosted on Vercel and backend is on Render, paste your Render backend URL here.
+                        </span>
+                    </div>
+
                     <div class="input-setting-group">
                         <label for="hfTokenInput">
                             <i class="fa-solid fa-key"></i> Hugging Face User Access Token (Free)
                         </label>
                         <input type="password" id="hfTokenInput" placeholder="hf_xxxxxxxxxxxxxxxxxxxxxxx">
                         <span class="setting-help-text">
-                            Get your free token from <a href="https://huggingface.co/settings/tokens" target="_blank">huggingface.co/settings/tokens</a> (Read role). If left blank, offline semantic extractor will be used.
+                            Get your free token from <a href="https://huggingface.co/settings/tokens"
+                                target="_blank">huggingface.co/settings/tokens</a> (Read role). If left blank, offline
+                            semantic extractor will be used.
                         </span>
                     </div>
 
@@ -427,8 +536,19 @@
                     </div>
 
                     <div class="input-setting-group">
+                        <label for="defaultProxyInput">
+                            <i class="fa-solid fa-shield-halved"></i> Default Proxy Server / Pool (Optional)
+                        </label>
+                        <input type="text" id="defaultProxyInput" placeholder="http://127.0.0.1:8080 or socks5://user:pass@host:port">
+                        <span class="setting-help-text">
+                            Automatically route all scraping requests through this proxy (HTTP, HTTPS, or SOCKS5).
+                        </span>
+                    </div>
+
+                    <div class="input-setting-group">
                         <label for="systemPromptInput"><i class="fa-solid fa-terminal"></i> Custom System Prompt</label>
-                        <textarea id="systemPromptInput" rows="3" class="prompt-textarea" placeholder="Enter custom instructions for RAG AI persona..."></textarea>
+                        <textarea id="systemPromptInput" rows="3" class="prompt-textarea"
+                            placeholder="Enter custom instructions for RAG AI persona..."></textarea>
                     </div>
 
                     <div class="setting-notice-box">
@@ -461,6 +581,7 @@
     </div>
 
     <!-- MAIN APP SCRIPT -->
-    <script src="/static/app.js"></script>
+    <script src="/static/app.js?v=2.1"></script>
 </body>
+
 </html>

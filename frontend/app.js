@@ -1,22 +1,39 @@
 /**
  * ScrapeAI - Frontend Controller Logic
- * Universal Web Scraper + Hugging Face RAG AI
+ * Universal Web Scraper + Continuous Multi-Site Batching + Proxy Pool + Hugging Face RAG AI
  */
 
 // Global State
 const state = {
+    mode: 'single', // 'single' | 'batch'
     currentData: null,
+    currentBatchData: null,
     activeTab: 'tab-article',
+    apiUrl: localStorage.getItem('scraper_api_url') || '',
     hfToken: localStorage.getItem('hf_token') || '',
     modelName: localStorage.getItem('hf_model') || 'Qwen/Qwen2.5-7B-Instruct',
+    defaultProxy: localStorage.getItem('default_proxy') || '',
     systemPrompt: localStorage.getItem('hf_system_prompt') || '',
     isScraping: false,
     isChatting: false
 };
 
+// Helper for backend API endpoints (supporting split Vercel + Render deployments)
+function getApiUrl(path) {
+    const base = (state.apiUrl || '').trim().replace(/\/+$/, '');
+    if (!base) return path;
+    return `${base}${path.startsWith('/') ? path : '/' + path}`;
+}
+
 // DOM References
 const dom = {
-    // Scraper Form
+    // Mode Switcher
+    modeSingleBtn: document.getElementById('modeSingleBtn'),
+    modeBatchBtn: document.getElementById('modeBatchBtn'),
+    proxyStatusBadge: document.getElementById('proxyStatusBadge'),
+    proxyStatusText: document.getElementById('proxyStatusText'),
+    
+    // Single Form
     scrapeForm: document.getElementById('scrapeForm'),
     urlInput: document.getElementById('urlInput'),
     scrapeBtn: document.getElementById('scrapeBtn'),
@@ -24,6 +41,22 @@ const dom = {
     toggleAdvOptions: document.getElementById('toggleAdvOptions'),
     advancedDrawer: document.getElementById('advancedDrawer'),
     customSelector: document.getElementById('customSelector'),
+    proxyInput: document.getElementById('proxyInput'),
+    testProxyBtn: document.getElementById('testProxyBtn'),
+    
+    // Batch Form
+    batchScrapeForm: document.getElementById('batchScrapeForm'),
+    batchUrlsInput: document.getElementById('batchUrlsInput'),
+    batchProxiesInput: document.getElementById('batchProxiesInput'),
+    proxyRotationSelect: document.getElementById('proxyRotationSelect'),
+    throttleDelayInput: document.getElementById('throttleDelayInput'),
+    delayValLabel: document.getElementById('delayValLabel'),
+    loadSampleBatchBtn: document.getElementById('loadSampleBatchBtn'),
+    loadTestProxyBtn: document.getElementById('loadTestProxyBtn'),
+    testBatchProxyBtn: document.getElementById('testBatchProxyBtn'),
+    batchScrapeBtn: document.getElementById('batchScrapeBtn'),
+
+    // Progress Bar
     progressContainer: document.getElementById('progressContainer'),
     progressBar: document.getElementById('progressBar'),
     progressText: document.getElementById('progressText'),
@@ -33,6 +66,7 @@ const dom = {
     statTables: document.getElementById('statTables'),
     statLinks: document.getElementById('statLinks'),
     statImages: document.getElementById('statImages'),
+    batchTabBadge: document.getElementById('batchTabBadge'),
     tableTabBadge: document.getElementById('tableTabBadge'),
     linkTabBadge: document.getElementById('linkTabBadge'),
     imgTabBadge: document.getElementById('imgTabBadge'),
@@ -46,7 +80,10 @@ const dom = {
     articleAuthor: document.getElementById('articleAuthor'),
     articleSource: document.getElementById('articleSource'),
     articleDate: document.getElementById('articleDate'),
+    articleProxy: document.getElementById('articleProxy'),
+    articleProxyText: document.getElementById('articleProxyText'),
     articleBody: document.getElementById('articleBody'),
+    batchContainer: document.getElementById('batchContainer'),
     tablesContainer: document.getElementById('tablesContainer'),
     linksList: document.getElementById('linksList'),
     linkSearch: document.getElementById('linkSearch'),
@@ -73,8 +110,10 @@ const dom = {
     closeSettingsModal: document.getElementById('closeSettingsModal'),
     cancelSettingsBtn: document.getElementById('cancelSettingsBtn'),
     saveSettingsBtn: document.getElementById('saveSettingsBtn'),
+    apiUrlInput: document.getElementById('apiUrlInput'),
     hfTokenInput: document.getElementById('hfTokenInput'),
     modelSelect: document.getElementById('modelSelect'),
+    defaultProxyInput: document.getElementById('defaultProxyInput'),
     systemPromptInput: document.getElementById('systemPromptInput'),
     
     historyModal: document.getElementById('historyModal'),
@@ -101,8 +140,14 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 function initSettings() {
+    if (state.apiUrl && dom.apiUrlInput) dom.apiUrlInput.value = state.apiUrl;
     if (state.hfToken) dom.hfTokenInput.value = state.hfToken;
     if (state.modelName) dom.modelSelect.value = state.modelName;
+    if (state.defaultProxy) {
+        dom.defaultProxyInput.value = state.defaultProxy;
+        if (dom.proxyInput) dom.proxyInput.value = state.defaultProxy;
+        updateProxyBadge(state.defaultProxy);
+    }
     if (state.systemPrompt) dom.systemPromptInput.value = state.systemPrompt;
     updateActiveModelBadge();
 }
@@ -113,22 +158,74 @@ function updateActiveModelBadge() {
     dom.chatActiveModel.textContent = isTokenSet ? `HF: ${shortName}` : 'Offline Mode (Local QA)';
 }
 
+function updateProxyBadge(proxyStr) {
+    if (proxyStr && proxyStr.trim()) {
+        const masked = proxyStr.length > 25 ? proxyStr.substring(0, 22) + '...' : proxyStr;
+        dom.proxyStatusBadge.classList.add('active');
+        dom.proxyStatusText.textContent = `Proxy: ${masked}`;
+    } else {
+        dom.proxyStatusBadge.classList.remove('active');
+        dom.proxyStatusText.textContent = 'Direct (No Proxy)';
+    }
+}
+
 // --- EVENT LISTENERS ---
 function initEventListeners() {
-    // Scraper Form
-    dom.scrapeForm.addEventListener('submit', handleScrapeSubmit);
+    // Mode Switcher
+    dom.modeSingleBtn.addEventListener('click', () => switchMode('single'));
+    dom.modeBatchBtn.addEventListener('click', () => switchMode('batch'));
 
-    // Preset Pills
+    // Single Scraper Form
+    dom.scrapeForm.addEventListener('submit', handleSingleScrapeSubmit);
+
+    // Batch Scraper Form
+    dom.batchScrapeForm.addEventListener('submit', handleBatchScrapeSubmit);
+
+    // Preset Pills for Single Scraper
     dom.presetPills.forEach(pill => {
         pill.addEventListener('click', () => {
-            dom.urlInput.value = pill.dataset.url;
-            dom.scrapeForm.dispatchEvent(new Event('submit'));
+            if (pill.dataset.url) {
+                dom.urlInput.value = pill.dataset.url;
+                dom.scrapeForm.dispatchEvent(new Event('submit'));
+            }
         });
     });
 
-    // Toggle Advanced Selector Drawer
+    // Sample Batch Sites Loader
+    dom.loadSampleBatchBtn.addEventListener('click', () => {
+        dom.batchUrlsInput.value = [
+            'https://en.wikipedia.org/wiki/Web_scraping',
+            'https://news.ycombinator.com',
+            'https://docs.python.org/3/tutorial/'
+        ].join('\n');
+    });
+
+    // Load Free Test Proxy Preset
+    dom.loadTestProxyBtn.addEventListener('click', () => {
+        // Preset sample public / test proxy format
+        dom.batchProxiesInput.value = [
+            'http://127.0.0.1:8080',
+            'socks5://127.0.0.1:9050',
+            'http://user:pass@gate.smartproxy.com:7000'
+        ].join('\n');
+        alert('ℹ️ Sample proxy formats added! You can test local Tor (socks5://127.0.0.1:9050) or your own proxies.');
+    });
+
+    // Throttle Delay Slider
+    dom.throttleDelayInput.addEventListener('input', (e) => {
+        dom.delayValLabel.textContent = `${parseFloat(e.target.value).toFixed(1)}s`;
+    });
+
+    // Toggle Advanced Drawer in Single Mode
     dom.toggleAdvOptions.addEventListener('click', () => {
         dom.advancedDrawer.classList.toggle('open');
+    });
+
+    // Test Proxy Buttons
+    dom.testProxyBtn.addEventListener('click', () => testProxyConnection(dom.proxyInput.value.trim()));
+    dom.testBatchProxyBtn.addEventListener('click', () => {
+        const firstProxy = (dom.batchProxiesInput.value.trim().split(/[\r\n,;]+/)[0] || '').trim();
+        testProxyConnection(firstProxy);
     });
 
     // Viewer Tabs
@@ -148,117 +245,133 @@ function initEventListeners() {
             const view = item.dataset.view;
             if (view && view.startsWith('tab-')) {
                 switchViewerTab(view);
-                document.querySelector('.viewer-card').scrollIntoView({ behavior: 'smooth' });
-            } else if (view === 'rag-chat') {
-                document.querySelector('.rag-chat-card').scrollIntoView({ behavior: 'smooth' });
-            } else if (view === 'dashboard') {
-                window.scrollTo({ top: 0, behavior: 'smooth' });
             }
         });
     });
 
-    // Search filter in links
-    dom.linkSearch.addEventListener('input', (e) => {
-        filterLinks(e.target.value);
+    // Export Menu
+    dom.exportBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        dom.exportMenu.classList.toggle('open');
+    });
+    document.addEventListener('click', () => dom.exportMenu.classList.remove('open'));
+    
+    dom.exportOpts.forEach(btn => {
+        btn.addEventListener('click', () => {
+            handleExport(btn.dataset.fmt);
+            dom.exportMenu.classList.remove('open');
+        });
     });
 
     // Copy JSON
     dom.copyJsonBtn.addEventListener('click', () => {
-        if (!state.currentData) return;
-        navigator.clipboard.writeText(JSON.stringify(state.currentData, null, 2));
-        dom.copyJsonBtn.innerHTML = '<i class="fa-solid fa-check"></i> Copied!';
-        setTimeout(() => {
-            dom.copyJsonBtn.innerHTML = '<i class="fa-regular fa-copy"></i> Copy JSON';
-        }, 2000);
-    });
-
-    // Export Dropdown
-    dom.exportBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        dom.exportMenu.classList.toggle('show');
-    });
-
-    document.addEventListener('click', () => {
-        dom.exportMenu.classList.remove('show');
-    });
-
-    dom.exportOpts.forEach(opt => {
-        opt.addEventListener('click', () => {
-            handleExport(opt.dataset.fmt);
+        const content = dom.jsonCode.textContent;
+        navigator.clipboard.writeText(content).then(() => {
+            const original = dom.copyJsonBtn.innerHTML;
+            dom.copyJsonBtn.innerHTML = '<i class="fa-solid fa-check"></i> Copied!';
+            setTimeout(() => dom.copyJsonBtn.innerHTML = original, 2000);
         });
     });
 
-    // Chatbot Form
+    // Link Search Filter
+    dom.linkSearch.addEventListener('input', (e) => {
+        const query = e.target.value.toLowerCase();
+        const items = dom.linksList.querySelectorAll('.link-item-row');
+        items.forEach(it => {
+            const text = it.textContent.toLowerCase();
+            it.style.display = text.includes(query) ? 'flex' : 'none';
+        });
+    });
+
+    // Chatbot Submit
     dom.chatForm.addEventListener('submit', handleChatSubmit);
+    dom.clearChatBtn.addEventListener('click', clearChatFeed);
 
     // Suggestion Chips
-    dom.suggestionChips.addEventListener('click', (e) => {
-        const chip = e.target.closest('.quick-chip');
-        if (chip) {
+    dom.suggestionChips.querySelectorAll('.quick-chip').forEach(chip => {
+        chip.addEventListener('click', () => {
             dom.chatInput.value = chip.dataset.prompt;
             dom.chatForm.dispatchEvent(new Event('submit'));
-        }
-    });
-
-    // Clear Chat
-    dom.clearChatBtn.addEventListener('click', () => {
-        dom.chatMessages.innerHTML = `
-            <div class="chat-row bot-row">
-                <div class="chat-avatar bot-avatar"><i class="fa-solid fa-robot"></i></div>
-                <div class="chat-speech-bubble">
-                    <p>Chat cleared. Ask anything about the active scraped webpage.</p>
-                </div>
-            </div>
-        `;
-    });
-
-    // Modal Triggers
-    const openSettings = () => openModal(dom.settingsModal);
-    const openHistory = () => openHistoryModal();
-
-    if (dom.sidebarSettingsBtn) dom.sidebarSettingsBtn.addEventListener('click', openSettings);
-    if (dom.topSettingsTab) dom.topSettingsTab.addEventListener('click', openSettings);
-    if (dom.topAiModelsTab) dom.topAiModelsTab.addEventListener('click', openSettings);
-    if (dom.chatActiveModel) {
-        dom.chatActiveModel.style.cursor = 'pointer';
-        dom.chatActiveModel.title = 'Click to configure AI Model & Token';
-        dom.chatActiveModel.addEventListener('click', openSettings);
-    }
-    
-    if (dom.sidebarHistoryBtn) dom.sidebarHistoryBtn.addEventListener('click', openHistory);
-    if (dom.topHistoryTab) dom.topHistoryTab.addEventListener('click', openHistory);
-
-    if (dom.topDocsTab) {
-        dom.topDocsTab.addEventListener('click', () => {
-            window.open('https://github.com', '_blank');
         });
-    }
+    });
 
+    // Modals Handling
+    dom.sidebarSettingsBtn.addEventListener('click', () => openModal(dom.settingsModal));
     dom.closeSettingsModal.addEventListener('click', () => closeModal(dom.settingsModal));
     dom.cancelSettingsBtn.addEventListener('click', () => closeModal(dom.settingsModal));
     dom.saveSettingsBtn.addEventListener('click', handleSaveSettings);
 
+    dom.sidebarHistoryBtn.addEventListener('click', () => {
+        openModal(dom.historyModal);
+        loadHistory();
+    });
     dom.closeHistoryModal.addEventListener('click', () => closeModal(dom.historyModal));
 }
 
-// --- SCRAPE ACTION ---
-async function handleScrapeSubmit(e) {
+// --- SWITCH MODE: SINGLE VS BATCH ---
+function switchMode(newMode) {
+    state.mode = newMode;
+    if (newMode === 'single') {
+        dom.modeSingleBtn.classList.add('active');
+        dom.modeBatchBtn.classList.remove('active');
+        dom.scrapeForm.style.display = 'block';
+        dom.batchScrapeForm.style.display = 'none';
+    } else {
+        dom.modeBatchBtn.classList.add('active');
+        dom.modeSingleBtn.classList.remove('active');
+        dom.scrapeForm.style.display = 'none';
+        dom.batchScrapeForm.style.display = 'block';
+    }
+}
+
+// --- TEST PROXY CONNECTION ---
+async function testProxyConnection(proxyUrl) {
+    if (!proxyUrl) {
+        alert('Please enter a proxy URL to test (e.g. http://127.0.0.1:8080 or socks5://127.0.0.1:9050)');
+        return;
+    }
+
+    setLoadingState(true, `Testing proxy: ${proxyUrl}...`);
+    try {
+        const res = await fetch(getApiUrl('/api/proxy/test'), {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ proxy: proxyUrl })
+        });
+        const data = await res.json();
+        if (data.success) {
+            alert(`✅ Proxy Connection Successful!\n\nPublic IP: ${data.ip}\nLatency: ${data.latency_seconds}s\nProxy: ${data.proxy_tested}`);
+            updateProxyBadge(proxyUrl);
+        } else {
+            alert(`❌ Proxy Connection Failed:\n\n${data.error || data.message}`);
+        }
+    } catch (err) {
+        alert(`❌ Network test error: ${err.message}`);
+    } finally {
+        setLoadingState(false);
+    }
+}
+
+// --- SINGLE URL SCRAPE ACTION ---
+async function handleSingleScrapeSubmit(e) {
     e.preventDefault();
     const url = dom.urlInput.value.trim();
     if (!url) return;
 
+    const proxy = dom.proxyInput ? dom.proxyInput.value.trim() : state.defaultProxy;
     state.isScraping = true;
-    setLoadingState(true, "Connecting to target site...");
+    setLoadingState(true, proxy ? `Connecting via proxy (${proxy})...` : "Connecting to target site...");
 
     try {
         updateProgress(35, "Parsing HTML, metadata, tables, links & images...");
         
-        const res = await fetch('/api/scrape', {
+        const res = await fetch(getApiUrl('/api/scrape'), {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 url: url,
                 custom_selector: dom.customSelector.value.trim() || null,
+                proxy: proxy || null,
                 hf_token: state.hfToken || null,
                 model_name: state.modelName
             })
@@ -273,10 +386,12 @@ async function handleScrapeSubmit(e) {
         const data = await res.json();
         
         state.currentData = data;
+        state.currentBatchData = null;
         renderScrapedData(data);
         updateProgress(100, "Scraping & Indexing Completed!");
 
-        addBotMessage(`✅ Successfully extracted **${data.metadata.title || data.url}** (${data.stats.word_count} words, ${data.stats.table_count} tables, ${data.stats.link_count} links). Indexed **${data.indexed_chunks || 0} chunks** for RAG search. Ask me anything!`);
+        const proxyNotice = data.proxy ? ` via Proxy **${data.proxy}**` : '';
+        addBotMessage(`✅ Successfully extracted **${data.metadata.title || data.url}**${proxyNotice} (${data.stats.word_count} words, ${data.stats.table_count} tables, ${data.stats.link_count} links). Indexed **${data.indexed_chunks || 0} chunks** for RAG AI. Ask me anything!`);
     } catch (err) {
         alert(`Scraping Error: ${err.message}`);
         console.error(err);
@@ -285,61 +400,201 @@ async function handleScrapeSubmit(e) {
     }
 }
 
-function setLoadingState(loading, text = '') {
-    if (loading) {
-        dom.scrapeBtn.disabled = true;
-        dom.scrapeBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Scraping...';
-        dom.progressContainer.classList.add('active');
-        dom.progressText.textContent = text;
-        dom.progressBar.style.width = '20%';
-    } else {
-        dom.scrapeBtn.disabled = false;
-        dom.scrapeBtn.innerHTML = '<i class="fa-solid fa-bolt"></i> <span>Scrape Page</span>';
-        dom.progressContainer.classList.remove('active');
-        dom.progressBar.style.width = '0%';
+// --- MULTI-SITE CONTINUOUS BATCH SCRAPE ACTION ---
+async function handleBatchScrapeSubmit(e) {
+    e.preventDefault();
+    let urlsRaw = dom.batchUrlsInput.value.trim();
+    if (!urlsRaw) {
+        // Auto-load 3 standard sample sites if left empty
+        urlsRaw = [
+            'https://en.wikipedia.org/wiki/Web_scraping',
+            'https://news.ycombinator.com',
+            'https://docs.python.org/3/tutorial/'
+        ].join('\n');
+        dom.batchUrlsInput.value = urlsRaw;
+    }
+
+    const urls = urlsRaw.split(/[\r\n]+/).map(u => u.trim()).filter(Boolean);
+    const proxiesRaw = dom.batchProxiesInput.value.trim();
+    const proxies = proxiesRaw ? proxiesRaw.split(/[\r\n,;]+/).map(p => p.trim()).filter(Boolean) : (state.defaultProxy ? [state.defaultProxy] : null);
+    const rotation = dom.proxyRotationSelect.value;
+    const delay = parseFloat(dom.throttleDelayInput.value) || 0.5;
+
+    state.isScraping = true;
+    setLoadingState(true, `Starting continuous batch scrape across ${urls.length} sites...`);
+    switchViewerTab('tab-batch');
+
+    try {
+        updateProgress(25, `Connecting & scraping ${urls.length} target websites...`);
+
+        const res = await fetch(getApiUrl('/api/scrape/batch'), {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                urls: urls,
+                proxies: proxies && proxies.length > 0 ? proxies : null,
+                proxy_rotation: rotation,
+                delay_seconds: delay,
+                hf_token: state.hfToken || null,
+                model_name: state.modelName
+            })
+        });
+
+        if (!res.ok) {
+            const err = await res.json();
+            throw new Error(err.detail || 'Batch scraping failed');
+        }
+
+        updateProgress(85, "Building unified RAG vector index over all websites...");
+        const batchData = await res.json();
+
+        state.currentBatchData = batchData;
+        state.currentData = null;
+        renderBatchData(batchData);
+        updateProgress(100, "Continuous Batch Scrape Completed!");
+
+        addBotMessage(`🚀 **Continuous Batch Scraping Completed!**\n\n- Scraped **${batchData.success_count} / ${batchData.total_urls} websites** successfully.\n- Total **${batchData.stats.total_words} words**, **${batchData.stats.total_tables} tables**, **${batchData.stats.total_links} links** extracted.\n- RAG vector search is ready over the combined corpus of all sites. Ask any comparative question!`);
+    } catch (err) {
+        alert(`Batch Scraping Error: ${err.message}`);
+        console.error(err);
+    } finally {
+        setTimeout(() => setLoadingState(false), 500);
     }
 }
 
-function updateProgress(percent, text) {
-    dom.progressBar.style.width = `${percent}%`;
-    dom.progressText.textContent = text;
+// --- RENDER BATCH SCRAPED DATA ---
+function renderBatchData(batchData) {
+    dom.emptyState.style.display = 'none';
+
+    // Update Stats
+    dom.statWords.textContent = (batchData.stats.total_words || 0).toLocaleString();
+    dom.statTables.textContent = (batchData.stats.total_tables || 0).toLocaleString();
+    dom.statLinks.textContent = (batchData.stats.total_links || 0).toLocaleString();
+    dom.statImages.textContent = (batchData.stats.total_images || 0).toLocaleString();
+    dom.batchTabBadge.textContent = batchData.total_urls;
+
+    // Render Batch Results Table
+    const results = batchData.results || [];
+    let html = `
+        <div class="batch-summary-banner">
+            <div class="batch-summary-stat"><span>Total Sites:</span> <strong>${batchData.total_urls}</strong></div>
+            <div class="batch-summary-stat"><span>Success:</span> <strong class="text-green">${batchData.success_count}</strong></div>
+            <div class="batch-summary-stat"><span>Failed:</span> <strong class="text-red">${batchData.fail_count}</strong></div>
+        </div>
+        <div class="table-responsive">
+            <table class="styled-data-table">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Target Website URL</th>
+                        <th>Status</th>
+                        <th>Proxy Used</th>
+                        <th>Words</th>
+                        <th>Tables</th>
+                        <th>Time</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+    `;
+
+    results.forEach((it, idx) => {
+        const isSuccess = it.status === 'success';
+        const data = it.data || {};
+        const stats = data.stats || {};
+        const title = data.metadata?.title || it.url;
+        const proxyLabel = it.proxy || 'Direct';
+
+        html += `
+            <tr>
+                <td>${idx + 1}</td>
+                <td>
+                    <div class="table-url-title">
+                        <strong>${escapeHtml(title)}</strong>
+                        <a href="${escapeHtml(it.url)}" target="_blank" class="table-link">${escapeHtml(it.url)} <i class="fa-solid fa-arrow-up-right-from-square"></i></a>
+                    </div>
+                </td>
+                <td>
+                    <span class="status-chip ${isSuccess ? 'chip-success' : 'chip-fail'}">
+                        ${isSuccess ? '<i class="fa-solid fa-check"></i> Scraped' : '<i class="fa-solid fa-xmark"></i> Failed'}
+                    </span>
+                </td>
+                <td><span class="proxy-tag"><i class="fa-solid fa-shield-halved"></i> ${escapeHtml(proxyLabel)}</span></td>
+                <td>${(stats.word_count || 0).toLocaleString()}</td>
+                <td>${stats.table_count || 0}</td>
+                <td>${it.duration}s</td>
+                <td>
+                    ${isSuccess ? `<button class="view-item-btn" onclick="viewSingleFromBatch(${idx})"><i class="fa-solid fa-eye"></i> View</button>` : `<span class="err-hint" title="${escapeHtml(it.error || '')}">Error</span>`}
+                </td>
+            </tr>
+        `;
+    });
+
+    html += `</tbody></table></div>`;
+    dom.batchContainer.innerHTML = html;
+
+    // Set JSON code
+    dom.jsonCode.textContent = JSON.stringify(batchData, null, 2);
+
+    // Switch to batch tab
+    switchViewerTab('tab-batch');
 }
 
-// --- RENDER DATA ---
+// Global helper to view single item from batch
+window.viewSingleFromBatch = function(idx) {
+    if (state.currentBatchData && state.currentBatchData.results[idx]) {
+        const item = state.currentBatchData.results[idx];
+        if (item.data) {
+            state.currentData = item.data;
+            renderScrapedData(item.data);
+            switchViewerTab('tab-article');
+        }
+    }
+};
+
+// --- RENDER SINGLE SCRAPED DATA ---
 function renderScrapedData(data) {
     dom.emptyState.style.display = 'none';
 
-    // 4 Stat Cards
+    // Update Stats
     dom.statWords.textContent = (data.stats.word_count || 0).toLocaleString();
     dom.statTables.textContent = data.stats.table_count || 0;
-    dom.statLinks.textContent = (data.stats.link_count || 0).toLocaleString();
+    dom.statLinks.textContent = data.stats.link_count || 0;
     dom.statImages.textContent = data.stats.image_count || 0;
-
-    // Badges on tabs
+    
     dom.tableTabBadge.textContent = data.stats.table_count || 0;
     dom.linkTabBadge.textContent = data.stats.link_count || 0;
     dom.imgTabBadge.textContent = data.stats.image_count || 0;
 
-    // Tab 1: Reader View
+    // 1. Article View
     dom.articleMetaHeader.style.display = 'block';
-    dom.articleTitle.textContent = data.metadata.title || 'Extracted Document';
-    dom.articleAuthor.innerHTML = `<i class="fa-solid fa-user"></i> ${data.metadata.author || 'Unknown Author'}`;
-    dom.articleSource.innerHTML = `<i class="fa-solid fa-globe"></i> ${new URL(data.url).hostname}`;
-    dom.articleDate.innerHTML = `<i class="fa-solid fa-calendar"></i> ${data.article.date || new Date().toLocaleDateString()}`;
-    dom.articleBody.textContent = data.article.text || 'No text extracted.';
+    dom.articleTitle.textContent = data.article.title || data.metadata.title || "Scraped Content";
+    dom.articleAuthor.innerHTML = `<i class="fa-solid fa-user"></i> ${escapeHtml(data.article.author || data.metadata.author || "Unknown")}`;
+    dom.articleSource.innerHTML = `<i class="fa-solid fa-globe"></i> ${escapeHtml(data.metadata.site_name || new URL(data.url).hostname)}`;
+    dom.articleDate.innerHTML = `<i class="fa-solid fa-calendar"></i> ${escapeHtml(data.article.date || new Date().toLocaleDateString())}`;
+    
+    if (data.proxy) {
+        dom.articleProxy.style.display = 'inline-flex';
+        dom.articleProxyText.textContent = `Proxy: ${data.proxy}`;
+    } else {
+        dom.articleProxy.style.display = 'none';
+    }
 
-    // Tab 2: Tables
+    dom.articleBody.innerHTML = formatArticleText(data.article.text);
+
+    // 2. Tables View
     renderTables(data.tables);
 
-    // Tab 3: Links
+    // 3. Links View
     renderLinks(data.links);
 
-    // Tab 4: Images
+    // 4. Media View
     renderImages(data.images);
 
-    // Tab 5: Raw JSON
+    // 5. JSON Code
     dom.jsonCode.textContent = JSON.stringify(data, null, 2);
 
+    // Switch to Reader View
     switchViewerTab('tab-article');
 }
 
@@ -349,112 +604,118 @@ function renderTables(tables) {
         return;
     }
 
-    dom.tablesContainer.innerHTML = tables.map((t, idx) => `
-        <div class="custom-table-wrapper">
-            <h4 style="padding: 0.65rem 0.9rem; color: var(--accent-cyan); font-size: 0.85rem;">Table #${idx + 1} (${t.row_count} rows, ${t.col_count} columns)</h4>
-            <table class="styled-table">
-                <thead>
-                    <tr>${t.headers.map(h => `<th>${escapeHtml(h)}</th>`).join('')}</tr>
-                </thead>
-                <tbody>
-                    ${t.rows.map(row => `
-                        <tr>${row.map(cell => `<td>${escapeHtml(cell)}</td>`).join('')}</tr>
-                    `).join('')}
-                </tbody>
-            </table>
-        </div>
-    `).join('');
+    let html = '';
+    tables.forEach(t => {
+        html += `
+            <div class="extracted-table-card">
+                <div class="table-card-header">
+                    <h4><i class="fa-solid fa-table-cells"></i> Table #${t.table_index} (${t.row_count} rows, ${t.col_count} cols)</h4>
+                </div>
+                <div class="table-responsive">
+                    <table class="styled-data-table">
+                        <thead>
+                            <tr>
+                                ${t.headers.map(h => `<th>${escapeHtml(h)}</th>`).join('')}
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${t.rows.map(row => `
+                                <tr>
+                                    ${row.map(cell => `<td>${escapeHtml(cell)}</td>`).join('')}
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        `;
+    });
+    dom.tablesContainer.innerHTML = html;
 }
 
 function renderLinks(links) {
     if (!links || links.length === 0) {
-        dom.linksList.innerHTML = '<p class="tab-empty-msg">No links extracted.</p>';
+        dom.linksList.innerHTML = '<p class="tab-empty-msg">No hyperlinks found.</p>';
         return;
     }
 
-    dom.linksList.innerHTML = links.map(l => `
-        <a href="${escapeHtml(l.url)}" target="_blank" rel="noopener noreferrer" class="link-item">
-            <span class="link-anchor">${escapeHtml(l.text || l.url)}</span>
-            <span class="link-dest">${escapeHtml(l.type)} • ${new URL(l.url).hostname}</span>
-        </a>
-    `).join('');
-}
-
-function filterLinks(query) {
-    const q = query.toLowerCase();
-    const items = dom.linksList.querySelectorAll('.link-item');
-    items.forEach(el => {
-        const text = el.textContent.toLowerCase();
-        el.style.display = text.includes(q) ? 'flex' : 'none';
+    let html = '';
+    links.forEach(l => {
+        html += `
+            <div class="link-item-row">
+                <span class="link-type-pill ${l.type === 'Internal' ? 'pill-internal' : 'pill-external'}">${l.type}</span>
+                <span class="link-text-anchor">${escapeHtml(l.text)}</span>
+                <a href="${escapeHtml(l.url)}" target="_blank" class="link-url-target" title="${escapeHtml(l.url)}">
+                    ${escapeHtml(l.url)} <i class="fa-solid fa-arrow-up-right-from-square"></i>
+                </a>
+            </div>
+        `;
     });
+    dom.linksList.innerHTML = html;
 }
 
 function renderImages(images) {
     if (!images || images.length === 0) {
-        dom.imagesGrid.innerHTML = '<p class="tab-empty-msg">No images found on this page.</p>';
+        dom.imagesGrid.innerHTML = '<p class="tab-empty-msg">No images detected on this page.</p>';
         return;
     }
 
-    dom.imagesGrid.innerHTML = images.map(img => `
-        <div class="image-card">
-            <img src="${escapeHtml(img.src)}" alt="${escapeHtml(img.alt)}" loading="lazy" onerror="this.src='data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'100\' height=\'100\'><rect width=\'100\' height=\'100\' fill=\'%23111827\'/></svg>'">
-            <span class="image-alt" title="${escapeHtml(img.alt)}">${escapeHtml(img.alt || 'Image')}</span>
-        </div>
-    `).join('');
+    let html = '';
+    images.forEach(img => {
+        html += `
+            <div class="media-card">
+                <div class="media-thumb-wrap">
+                    <img src="${escapeHtml(img.src)}" alt="${escapeHtml(img.alt)}" loading="lazy" onerror="this.src='https://via.placeholder.com/300x200?text=Image+Unavailable'">
+                </div>
+                <div class="media-caption">
+                    <span class="media-alt-label">${escapeHtml(img.alt || "Image")}</span>
+                    <a href="${escapeHtml(img.src)}" target="_blank" class="media-src-link"><i class="fa-solid fa-external-link"></i> Full Image</a>
+                </div>
+            </div>
+        `;
+    });
+    dom.imagesGrid.innerHTML = html;
 }
 
-function switchViewerTab(tabId) {
-    state.activeTab = tabId;
-    dom.vTabs.forEach(tab => {
-        tab.classList.toggle('active', tab.dataset.tab === tabId);
-    });
-    dom.tabPanels.forEach(panel => {
-        panel.classList.toggle('active', panel.id === tabId);
-    });
-}
-
-// --- CHAT & RAG ENGINE ---
+// --- CHATBOT LOGIC ---
 async function handleChatSubmit(e) {
     e.preventDefault();
-    const question = dom.chatInput.value.trim();
-    if (!question || state.isChatting) return;
+    const q = dom.chatInput.value.trim();
+    if (!q || state.isChatting) return;
 
-    if (!state.currentData) {
-        alert("Please scrape a website URL first before asking questions!");
-        return;
-    }
-
-    addUserMessage(question);
+    addUserMessage(q);
     dom.chatInput.value = '';
     state.isChatting = true;
+    dom.sendBtn.disabled = true;
 
-    const typingId = addTypingIndicator();
+    const loaderId = addBotLoader();
 
     try {
-        const res = await fetch('/api/chat', {
+        const res = await fetch(getApiUrl('/api/chat'), {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-                question: question,
+                question: q,
                 hf_token: state.hfToken || null,
                 model_name: state.modelName,
                 system_prompt: state.systemPrompt || null
             })
         });
 
-        const data = await res.json();
-        removeTypingIndicator(typingId);
-
-        if (data.success) {
-            addBotMessage(data.answer, data.citations, data.model_used);
-        } else {
-            addBotMessage(data.answer || "Unable to get an answer.", []);
+        if (!res.ok) {
+            const err = await res.json();
+            throw new Error(err.detail || 'Chat query failed');
         }
+
+        const data = await res.json();
+        removeLoader(loaderId);
+        addBotAnswer(data);
     } catch (err) {
-        removeTypingIndicator(typingId);
-        addBotMessage(`⚠️ Error communicating with AI: ${err.message}`);
+        removeLoader(loaderId);
+        addBotMessage(`⚠️ Error: ${err.message}`);
     } finally {
         state.isChatting = false;
+        dom.sendBtn.disabled = false;
     }
 }
 
@@ -462,176 +723,234 @@ function addUserMessage(text) {
     const row = document.createElement('div');
     row.className = 'chat-row user-row';
     row.innerHTML = `
-        <div class="chat-avatar user-avatar-icon"><i class="fa-solid fa-user"></i></div>
-        <div class="chat-speech-bubble">${escapeHtml(text)}</div>
+        <div class="chat-speech-bubble user-bubble">
+            <p>${escapeHtml(text)}</p>
+        </div>
+        <div class="chat-avatar user-avatar"><i class="fa-solid fa-user"></i></div>
     `;
     dom.chatMessages.appendChild(row);
-    scrollToBottom();
+    scrollChat();
 }
 
-function addBotMessage(text, citations = [], model = null) {
+function addBotMessage(text) {
     const row = document.createElement('div');
     row.className = 'chat-row bot-row';
+    row.innerHTML = `
+        <div class="chat-avatar bot-avatar"><i class="fa-solid fa-robot"></i></div>
+        <div class="chat-speech-bubble bot-bubble">
+            <p>${formatMarkdown(text)}</p>
+        </div>
+    `;
+    dom.chatMessages.appendChild(row);
+    scrollChat();
+}
 
+function addBotAnswer(data) {
+    const row = document.createElement('div');
+    row.className = 'chat-row bot-row';
+    
     let citationsHtml = '';
-    if (citations && citations.length > 0) {
+    if (data.citations && data.citations.length > 0) {
         citationsHtml = `
-            <div class="citations-box">
-                <span style="font-size: 0.68rem; color: var(--text-muted);"><i class="fa-solid fa-book-bookmark"></i> Grounded in ${citations.length} chunk(s):</span>
-                ${citations.map(c => `
-                    <div class="citation-chip">
-                        [Chunk #${c.chunk_id} • Score: ${c.score}]
-                        <div class="citation-snippet">${escapeHtml(c.snippet)}</div>
-                    </div>
-                `).join('')}
+            <div class="chat-citations-wrap">
+                <span class="citations-header"><i class="fa-solid fa-quote-left"></i> Evidence Chunks (${data.citations.length}):</span>
+                <div class="citations-list">
+                    ${data.citations.map(c => `
+                        <div class="citation-chip" title="${escapeHtml(c.snippet)}">
+                            <span class="citation-tag">Chunk #${c.chunk_id}</span>
+                            <span class="citation-score">${(c.score * 100).toFixed(0)}% match</span>
+                        </div>
+                    `).join('')}
+                </div>
             </div>
         `;
     }
 
-    let modelTag = model ? `<div style="font-size:0.65rem; color:var(--accent-cyan); margin-top:0.35rem;"><i class="fa-solid fa-microchip"></i> ${model}</div>` : '';
-    const formatted = formatMarkdown(text);
-
     row.innerHTML = `
         <div class="chat-avatar bot-avatar"><i class="fa-solid fa-robot"></i></div>
-        <div class="chat-speech-bubble">
-            ${formatted}
+        <div class="chat-speech-bubble bot-bubble">
+            <div class="bot-answer-body">${formatMarkdown(data.answer)}</div>
             ${citationsHtml}
-            ${modelTag}
         </div>
     `;
     dom.chatMessages.appendChild(row);
-    scrollToBottom();
+    scrollChat();
 }
 
-function addTypingIndicator() {
-    const id = 'typing_' + Date.now();
+function addBotLoader() {
+    const id = 'loader_' + Date.now();
     const row = document.createElement('div');
-    row.id = id;
     row.className = 'chat-row bot-row';
+    row.id = id;
     row.innerHTML = `
         <div class="chat-avatar bot-avatar"><i class="fa-solid fa-robot"></i></div>
-        <div class="chat-speech-bubble"><i class="fa-solid fa-circle-notch fa-spin"></i> Retrieving context & generating answer...</div>
+        <div class="chat-speech-bubble bot-bubble typing-bubble">
+            <span class="dot"></span>
+            <span class="dot"></span>
+            <span class="dot"></span>
+        </div>
     `;
     dom.chatMessages.appendChild(row);
-    scrollToBottom();
+    scrollChat();
     return id;
 }
 
-function removeTypingIndicator(id) {
+function removeLoader(id) {
     const el = document.getElementById(id);
     if (el) el.remove();
 }
 
-function scrollToBottom() {
+function clearChatFeed() {
+    dom.chatMessages.innerHTML = `
+        <div class="chat-row bot-row">
+            <div class="chat-avatar bot-avatar"><i class="fa-solid fa-robot"></i></div>
+            <div class="chat-speech-bubble">
+                <p>👋 Chat reset! Ask any question regarding the active scraped content.</p>
+            </div>
+        </div>
+    `;
+}
+
+function scrollChat() {
     dom.chatMessages.scrollTop = dom.chatMessages.scrollHeight;
 }
 
 // --- EXPORT HANDLER ---
 async function handleExport(format) {
-    if (!state.currentData) {
-        alert("Please scrape a website URL first before exporting.");
+    const isBatch = state.mode === 'batch' && state.currentBatchData !== null;
+    if (!state.currentData && !state.currentBatchData) {
+        alert('Please scrape a URL or run a batch scrape first before exporting.');
         return;
     }
 
     try {
-        const response = await fetch('/api/export', {
+        const res = await fetch(getApiUrl('/api/export'), {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ format: format })
+            body: JSON.stringify({ format: format, is_batch: isBatch })
         });
 
-        if (!response.ok) throw new Error("Export failed");
+        if (!res.ok) throw new Error('Export generation failed');
 
-        const blob = await response.blob();
+        const blob = await res.blob();
         const downloadUrl = window.URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = downloadUrl;
-        
-        const ext = format === 'markdown' ? 'md' : format;
-        a.download = `scrape_export_${Date.now()}.${ext}`;
+        a.download = `scraped_${isBatch ? 'batch_' : ''}data.${format}`;
         document.body.appendChild(a);
         a.click();
         a.remove();
     } catch (err) {
-        alert(`Export failed: ${err.message}`);
+        alert(`Export Error: ${err.message}`);
     }
 }
 
-// --- HISTORY MODAL ---
-async function openHistoryModal() {
-    openModal(dom.historyModal);
-    dom.historyList.innerHTML = '<p class="tab-empty-msg"><i class="fa-solid fa-spinner fa-spin"></i> Loading history...</p>';
+// --- SETTINGS SAVE ---
+function handleSaveSettings() {
+    const apiUrl = dom.apiUrlInput ? dom.apiUrlInput.value.trim() : '';
+    const token = dom.hfTokenInput.value.trim();
+    const model = dom.modelSelect.value;
+    const proxy = dom.defaultProxyInput.value.trim();
+    const prompt = dom.systemPromptInput.value.trim();
 
+    state.apiUrl = apiUrl;
+    state.hfToken = token;
+    state.modelName = model;
+    state.defaultProxy = proxy;
+    state.systemPrompt = prompt;
+
+    localStorage.setItem('scraper_api_url', apiUrl);
+    localStorage.setItem('hf_token', token);
+    localStorage.setItem('hf_model', model);
+    localStorage.setItem('default_proxy', proxy);
+    localStorage.setItem('hf_system_prompt', prompt);
+
+    updateActiveModelBadge();
+    updateProxyBadge(proxy);
+    if (dom.proxyInput) dom.proxyInput.value = proxy;
+
+    closeModal(dom.settingsModal);
+    checkHealth();
+    alert('Settings saved successfully!');
+}
+
+// --- HISTORY LOGIC ---
+async function loadHistory() {
     try {
-        const res = await fetch('/api/history');
+        const res = await fetch(getApiUrl('/api/history'));
         const data = await res.json();
-        const history = data.history || [];
+        const list = data.history || [];
 
-        if (history.length === 0) {
-            dom.historyList.innerHTML = '<p class="tab-empty-msg">No previous scrapes saved yet.</p>';
+        if (list.length === 0) {
+            dom.historyList.innerHTML = '<p class="tab-empty-msg">No scrape sessions recorded yet.</p>';
             return;
         }
 
-        dom.historyList.innerHTML = history.map(item => `
-            <div class="history-item-row" onclick="loadHistoryItem('${item.url}')">
-                <div>
-                    <div class="history-item-title">${escapeHtml(item.title || 'Untitled Page')}</div>
-                    <div class="history-item-url">${escapeHtml(item.url)}</div>
+        let html = '';
+        list.forEach(item => {
+            html += `
+                <div class="history-item-card">
+                    <div class="hist-info">
+                        <h4>${escapeHtml(item.title || "Untitled")}</h4>
+                        <span class="hist-url"><i class="fa-solid fa-link"></i> ${escapeHtml(item.url)}</span>
+                        <span class="hist-meta">${new Date(item.timestamp).toLocaleString()} • ${item.word_count} words • ${item.tables_count} tables</span>
+                    </div>
                 </div>
-                <div style="font-size:0.75rem; color:var(--accent-cyan); text-align:right;">
-                    ${item.word_count || 0} words<br>
-                    <span style="color:var(--text-muted); font-size:0.7rem;">${new Date(item.timestamp).toLocaleDateString()}</span>
-                </div>
-            </div>
-        `).join('');
+            `;
+        });
+        dom.historyList.innerHTML = html;
     } catch (err) {
-        dom.historyList.innerHTML = '<p class="tab-empty-msg">Failed to load history.</p>';
+        dom.historyList.innerHTML = `<p class="tab-empty-msg">Failed to load history: ${err.message}</p>`;
     }
 }
 
-window.loadHistoryItem = function(url) {
-    closeModal(dom.historyModal);
-    dom.urlInput.value = url;
-    dom.scrapeForm.dispatchEvent(new Event('submit'));
-};
-
-// --- SETTINGS MODAL ---
-function handleSaveSettings() {
-    state.hfToken = dom.hfTokenInput.value.trim();
-    state.modelName = dom.modelSelect.value;
-    state.systemPrompt = dom.systemPromptInput.value.trim();
-
-    localStorage.setItem('hf_token', state.hfToken);
-    localStorage.setItem('hf_model', state.modelName);
-    localStorage.setItem('hf_system_prompt', state.systemPrompt);
-
-    updateActiveModelBadge();
-    closeModal(dom.settingsModal);
-
-    addBotMessage(`⚙️ Settings updated! Model: **${state.modelName}**. Token: **${state.hfToken ? 'Active' : 'Unset (Offline Mode)'}**.`);
+// --- UTILITIES ---
+function switchViewerTab(tabId) {
+    state.activeTab = tabId;
+    dom.vTabs.forEach(t => t.classList.toggle('active', t.dataset.tab === tabId));
+    dom.tabPanels.forEach(p => p.classList.toggle('active', p.id === tabId));
 }
 
-function openModal(modalEl) {
-    modalEl.classList.add('open');
+function setLoadingState(loading, text = '') {
+    if (loading) {
+        dom.scrapeBtn.disabled = true;
+        dom.batchScrapeBtn.disabled = true;
+        dom.scrapeBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Scraping...';
+        dom.batchScrapeBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Batch Scraping...';
+        dom.progressContainer.classList.add('active');
+        dom.progressText.textContent = text;
+        dom.progressBar.style.width = '20%';
+    } else {
+        dom.scrapeBtn.disabled = false;
+        dom.batchScrapeBtn.disabled = false;
+        dom.scrapeBtn.innerHTML = '<i class="fa-solid fa-bolt"></i> <span>Scrape Page</span>';
+        dom.batchScrapeBtn.innerHTML = '<i class="fa-solid fa-play"></i> <span>Start Continuous Batch Scrape</span>';
+        dom.progressContainer.classList.remove('active');
+        dom.progressBar.style.width = '0%';
+    }
 }
 
-function closeModal(modalEl) {
-    modalEl.classList.remove('open');
+function updateProgress(percent, label) {
+    dom.progressBar.style.width = `${percent}%`;
+    if (label) dom.progressText.textContent = label;
 }
 
-// --- HEALTH CHECK ---
+function openModal(m) { m.classList.add('open'); }
+function closeModal(m) { m.classList.remove('open'); }
+
 async function checkHealth() {
     try {
-        const res = await fetch('/api/health');
+        const res = await fetch(getApiUrl('/api/health'));
         if (res.ok) {
-            dom.serverStatus.innerHTML = '<span class="status-dot"></span><span class="status-text">Backend Ready</span>';
+            dom.serverStatus.classList.add('online');
+            dom.serverStatus.querySelector('.status-text').textContent = 'Backend Online';
         }
-    } catch (e) {
-        dom.serverStatus.innerHTML = '<span class="status-dot" style="background:#f43f5e; box-shadow:0 0 8px #f43f5e;"></span><span class="status-text" style="color:#f43f5e;">Offline</span>';
+    } catch {
+        dom.serverStatus.classList.remove('online');
+        dom.serverStatus.querySelector('.status-text').textContent = 'Backend Offline';
     }
 }
 
-// --- UTILS ---
 function escapeHtml(str) {
     if (!str) return '';
     return String(str)
@@ -642,12 +961,18 @@ function escapeHtml(str) {
         .replace(/'/g, '&#039;');
 }
 
+function formatArticleText(text) {
+    if (!text) return '<p class="tab-empty-msg">No article text extracted.</p>';
+    const paragraphs = text.split(/\n\s*\n/);
+    return paragraphs.map(p => `<p>${escapeHtml(p.trim())}</p>`).join('');
+}
+
 function formatMarkdown(text) {
     if (!text) return '';
-    let formatted = escapeHtml(text);
-    formatted = formatted.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
-    formatted = formatted.replace(/^\* (.*?)$/gm, '<li>$1</li>');
-    formatted = formatted.replace(/(<li>.*?<\/li>)+/g, '<ul style="margin: 0.4rem 0; padding-left: 1.1rem;">$&</ul>');
-    formatted = formatted.replace(/\n/g, '<br>');
-    return formatted;
+    let parsed = escapeHtml(text);
+    parsed = parsed.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+    parsed = parsed.replace(/\*(.*?)\*/g, '<em>$1</em>');
+    parsed = parsed.replace(/`([^`]+)`/g, '<code>$1</code>');
+    parsed = parsed.replace(/\n/g, '<br>');
+    return parsed;
 }
