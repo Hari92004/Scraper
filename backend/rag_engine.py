@@ -158,52 +158,93 @@ class RAGEngine:
         return results
 
     def _call_huggingface_llm(self, prompt: str, system_prompt: str) -> str:
-        """Call Hugging Face Inference API with fallback handling."""
-        if not HF_AVAILABLE or not self.hf_token:
-            raise ValueError("Hugging Face token not provided or client not initialized.")
+        """Call Hugging Face Inference API with router endpoint and direct HTTP fallback handling."""
+        if not self.hf_token:
+            raise ValueError("Hugging Face token not provided.")
 
-        client = InferenceClient(api_key=self.hf_token)
         messages = [
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": prompt}
         ]
 
-        try:
-            # Try chat completion first
-            response = client.chat.completions.create(
-                model=self.model_name,
-                messages=messages,
-                max_tokens=800,
-                temperature=0.2
-            )
-            return response.choices[0].message.content.strip()
-        except Exception as e:
-            # Fallback to text_generation if chat endpoint is not supported on chosen model
+        # 1. Try modern HuggingFace InferenceClient
+        if HF_AVAILABLE:
             try:
-                full_prompt = f"System: {system_prompt}\nUser: {prompt}\nAssistant:"
-                res = client.text_generation(
-                    full_prompt,
+                client = InferenceClient(api_key=self.hf_token)
+                response = client.chat.completions.create(
                     model=self.model_name,
-                    max_new_tokens=600,
+                    messages=messages,
+                    max_tokens=800,
                     temperature=0.2
                 )
-                return res.strip()
-            except Exception as e2:
-                raise RuntimeError(f"Hugging Face API Error: {str(e)} | Fallback Error: {str(e2)}")
+                if response and response.choices:
+                    return response.choices[0].message.content.strip()
+            except Exception:
+                pass
+
+        # 2. Try direct HTTP request to Hugging Face Router endpoint (OpenAI compatible)
+        router_urls = [
+            f"https://router.huggingface.co/hf-inference/models/{self.model_name}/v1/chat/completions",
+            f"https://router.huggingface.co/hf-inference/v1/chat/completions",
+            f"https://api-inference.huggingface.co/models/{self.model_name}/v1/chat/completions"
+        ]
+
+        headers = {
+            "Authorization": f"Bearer {self.hf_token.strip()}",
+            "Content-Type": "application/json"
+        }
+
+        payload = {
+            "model": self.model_name,
+            "messages": messages,
+            "max_tokens": 800,
+            "temperature": 0.2
+        }
+
+        last_error = None
+        for url in router_urls:
+            try:
+                resp = requests.post(url, headers=headers, json=payload, timeout=25)
+                if resp.status_code == 200:
+                    data = resp.json()
+                    if "choices" in data and len(data["choices"]) > 0:
+                        return data["choices"][0]["message"]["content"].strip()
+                elif resp.status_code in (401, 403):
+                    raise ValueError(f"Invalid or unauthorized Hugging Face token (HTTP {resp.status_code})")
+            except Exception as e:
+                last_error = e
+
+        # 3. Try legacy text generation fallback
+        try:
+            legacy_url = f"https://router.huggingface.co/hf-inference/models/{self.model_name}"
+            full_prompt = f"<s>[INST] <<SYS>>\n{system_prompt}\n<</SYS>>\n\n{prompt} [/INST]"
+            resp = requests.post(legacy_url, headers=headers, json={"inputs": full_prompt, "parameters": {"max_new_tokens": 500}}, timeout=25)
+            if resp.status_code == 200:
+                data = resp.json()
+                if isinstance(data, list) and len(data) > 0 and "generated_text" in data[0]:
+                    return data[0]["generated_text"].replace(full_prompt, "").strip()
+        except Exception:
+            pass
+
+        raise RuntimeError(f"Could not connect to Hugging Face API: {last_error or 'Endpoint unreachable'}")
 
     def _extractive_smart_answer(self, query: str, retrieved_chunks: List[Dict[str, Any]]) -> str:
-        """Zero-API-key offline fallback: extracts and highlights direct answers from retrieved chunks."""
+        """Zero-API-key offline fallback: extracts and highlights key answers from scraped context."""
+        if not self.chunks:
+            return "Koi page scrape nahi kiya gaya hai. Pehle website scrape karein."
+
+        # If retrieved chunks are low score or empty, use first two chunks as general summary
         if not retrieved_chunks or retrieved_chunks[0]["score"] == 0:
-            return (
-                "Scraped website content me is question ke baare me specific information nahi mili. "
-                "Aap please page ka topic check karein ya dusra sawal poochein."
-            )
+            sample_text = " ".join([c.text for c in self.chunks[:2]])
+            sentences = [s.strip() for s in re.split(r'(?<=[.?!])\s+', sample_text) if len(s.strip()) > 20]
+            summary = "\n• " + "\n• ".join(sentences[:4])
+            return f"**Summary from scraped webpage:**\n{summary}\n\n*(Extracted directly from page content in local mode)*"
 
         top_chunk = retrieved_chunks[0]["text"]
         sentences = re.split(r'(?<=[.?!])\s+', top_chunk)
         
         # Filter sentences with query keywords
-        query_words = set(re.findall(r'\w+', query.lower())) - {"what", "is", "the", "a", "an", "how", "why", "where", "who", "kya", "hai", "kaise"}
+        query_words = set(re.findall(r'\w+', query.lower())) - {"what", "is", "the", "a", "an", "how", "why", "where", "who", "kya", "hai", "kaise", "about", "tell", "me"}
         
         relevant_sentences = []
         for s in sentences:
@@ -215,7 +256,7 @@ class RAGEngine:
             relevant_sentences = sentences[:3]
 
         answer_summary = " ".join(relevant_sentences[:4])
-        return f"{answer_summary}\n\n*(Extracted directly from scraped context using semantic matching)*"
+        return f"{answer_summary}\n\n*(Extracted directly from scraped context)*"
 
     def query(self, question: str, top_k: int = 4) -> Dict[str, Any]:
         """Perform full RAG: Retrieve context chunks and generate grounded answer."""
