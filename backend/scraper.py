@@ -7,18 +7,19 @@ import os
 import re
 import time
 import random
+import gzip
+import zlib
 import urllib.parse
 from typing import Dict, Any, List, Optional, Union, Generator, Callable, Tuple
 import requests
 from bs4 import BeautifulSoup
 import trafilatura
 
-# Realistic headers to prevent blocking
+# Realistic headers to prevent blocking (let requests handle Accept-Encoding automatically)
 DEFAULT_HEADERS = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
     "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
     "Accept-Language": "en-US,en;q=0.9,hi;q=0.8",
-    "Accept-Encoding": "gzip, deflate, br",
     "DNT": "1",
     "Connection": "keep-alive",
     "Upgrade-Insecure-Requests": "1"
@@ -176,7 +177,7 @@ class UniversalScraper:
                 self.session.proxies.update(proxies)
 
     def fetch_html(self, url: str, proxy: Optional[str] = None) -> Tuple[str, str, Optional[str]]:
-        """Fetch raw HTML from target URL with proper redirect, proxy & error handling."""
+        """Fetch raw HTML from target URL with proper redirect, proxy, decompression & error handling."""
         if not url.startswith(("http://", "https://")):
             url = "https://" + url
 
@@ -190,12 +191,37 @@ class UniversalScraper:
             proxies=effective_proxies
         )
         response.raise_for_status()
-        
-        # Ensure encoding is properly detected
-        if response.encoding is None or response.encoding == 'ISO-8859-1':
-            response.encoding = response.apparent_encoding or 'utf-8'
+
+        # Handle potential compressed raw content (gzip, deflate, brotli)
+        content_bytes = response.content
+        if content_bytes.startswith(b'\x1f\x8b'):  # Gzip magic number
+            try:
+                content_bytes = gzip.decompress(content_bytes)
+            except Exception:
+                pass
+        elif content_bytes.startswith((b'\x78\x9c', b'\x78\x01', b'\x78\xda')):  # Zlib deflate
+            try:
+                content_bytes = zlib.decompress(content_bytes)
+            except Exception:
+                pass
+        else:
+            try:
+                import brotli
+                content_bytes = brotli.decompress(content_bytes)
+            except Exception:
+                pass
+
+        # Determine best encoding
+        encoding = response.encoding
+        if not encoding or encoding.lower() in ('iso-8859-1', 'windows-1252'):
+            encoding = response.apparent_encoding or 'utf-8'
+
+        try:
+            html_text = content_bytes.decode(encoding, errors='replace')
+        except Exception:
+            html_text = content_bytes.decode('utf-8', errors='replace')
             
-        return response.text, str(response.url), mask_proxy(active_proxy_str)
+        return html_text, str(response.url), mask_proxy(active_proxy_str)
 
     def extract_metadata(self, soup: BeautifulSoup, base_url: str) -> Dict[str, Any]:
         """Extract title, description, keywords, author, canonical URL, and OpenGraph tags."""
