@@ -132,6 +132,7 @@ const dom = {
 document.addEventListener('DOMContentLoaded', () => {
     initSettings();
     initEventListeners();
+    initRouter();
     checkHealth();
 });
 
@@ -234,13 +235,12 @@ function initEventListeners() {
     // Sidebar navigation clicks
     dom.sidebarItems.forEach(item => {
         item.addEventListener('click', (e) => {
-            if (item.id === 'sidebarSettingsBtn' || item.id === 'sidebarHistoryBtn') return;
-            dom.sidebarItems.forEach(i => i.classList.remove('active'));
-            item.classList.add('active');
-            
-            const view = item.dataset.view;
-            if (view && view.startsWith('tab-')) {
-                switchViewerTab(view);
+            const href = item.getAttribute('href');
+            if (href && href.startsWith('#')) {
+                // If it's already current hash, re-trigger route
+                if (window.location.hash === href) {
+                    handleRoute();
+                }
             }
         });
     });
@@ -292,16 +292,60 @@ function initEventListeners() {
     });
 
     // Modals Handling
-    dom.sidebarSettingsBtn.addEventListener('click', () => openModal(dom.settingsModal));
     dom.closeSettingsModal.addEventListener('click', () => closeModal(dom.settingsModal));
     dom.cancelSettingsBtn.addEventListener('click', () => closeModal(dom.settingsModal));
     dom.saveSettingsBtn.addEventListener('click', handleSaveSettings);
+    dom.closeHistoryModal.addEventListener('click', () => closeModal(dom.historyModal));
+}
 
-    dom.sidebarHistoryBtn.addEventListener('click', () => {
+// --- HASH ROUTER ---
+function initRouter() {
+    window.addEventListener('hashchange', handleRoute);
+    
+    // Close modals on overlay outside click
+    [dom.settingsModal, dom.historyModal].forEach(m => {
+        if (m) {
+            m.addEventListener('click', (e) => {
+                if (e.target === m) closeModal(m);
+            });
+        }
+    });
+
+    handleRoute();
+}
+
+function handleRoute() {
+    const hash = window.location.hash || '#dashboard';
+
+    // Highlight active sidebar item
+    dom.sidebarItems.forEach(item => {
+        const href = item.getAttribute('href');
+        item.classList.toggle('active', href === hash);
+    });
+
+    if (hash === '#settings') {
+        openModal(dom.settingsModal);
+    } else if (hash === '#history') {
         openModal(dom.historyModal);
         loadHistory();
-    });
-    dom.closeHistoryModal.addEventListener('click', () => closeModal(dom.historyModal));
+    } else if (hash === '#reader') {
+        closeModal(dom.settingsModal, false);
+        closeModal(dom.historyModal, false);
+        switchViewerTab('tab-article');
+        const el = document.getElementById('tab-article');
+        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    } else if (hash === '#batch-view' || hash === '#batch') {
+        closeModal(dom.settingsModal, false);
+        closeModal(dom.historyModal, false);
+        switchMode('batch');
+        switchViewerTab('tab-batch');
+        const el = document.getElementById('tab-batch');
+        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    } else { // #dashboard
+        closeModal(dom.settingsModal, false);
+        closeModal(dom.historyModal, false);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
 }
 
 // --- SWITCH MODE: SINGLE VS BATCH ---
@@ -938,11 +982,22 @@ async function loadHistory() {
     }
 }
 
-// --- UTILITIES ---
 function switchViewerTab(tabId) {
     state.activeTab = tabId;
     dom.vTabs.forEach(t => t.classList.toggle('active', t.dataset.tab === tabId));
     dom.tabPanels.forEach(p => p.classList.toggle('active', p.id === tabId));
+    
+    // Sync sidebar active status and URL hash
+    if (tabId === 'tab-article') {
+        history.replaceState(null, '', window.location.pathname + '#reader');
+        dom.sidebarItems.forEach(i => i.classList.toggle('active', i.getAttribute('href') === '#reader'));
+    } else if (tabId === 'tab-batch') {
+        history.replaceState(null, '', window.location.pathname + '#batch-view');
+        dom.sidebarItems.forEach(i => i.classList.toggle('active', i.getAttribute('href') === '#batch-view'));
+    } else {
+        history.replaceState(null, '', window.location.pathname + '#dashboard');
+        dom.sidebarItems.forEach(i => i.classList.toggle('active', i.getAttribute('href') === '#dashboard'));
+    }
 }
 
 function setLoadingState(loading, text = '') {
@@ -969,8 +1024,19 @@ function updateProgress(percent, label) {
     if (label) dom.progressText.textContent = label;
 }
 
-function openModal(m) { m.classList.add('open'); }
-function closeModal(m) { m.classList.remove('open'); }
+function openModal(m) { 
+    if (!m) return;
+    m.classList.add('open'); 
+}
+
+function closeModal(m, updateHash = true) { 
+    if (!m) return;
+    m.classList.remove('open'); 
+    if (updateHash && (window.location.hash === '#settings' || window.location.hash === '#history')) {
+        history.replaceState(null, '', window.location.pathname + '#dashboard');
+        dom.sidebarItems.forEach(i => i.classList.toggle('active', i.getAttribute('href') === '#dashboard'));
+    }
+}
 
 async function checkHealth() {
     try {
