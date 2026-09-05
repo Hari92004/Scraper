@@ -9,7 +9,7 @@ const state = {
     currentData: null,
     currentBatchData: null,
     activeTab: 'tab-article',
-    apiUrl: localStorage.getItem('scraper_api_url') || '',
+    apiUrl: localStorage.getItem('scraper_api_url') || 'https://scraper-do9n.onrender.com',
     hfToken: localStorage.getItem('hf_token') || '',
     modelName: localStorage.getItem('hf_model') || 'Qwen/Qwen2.5-7B-Instruct',
     defaultProxy: localStorage.getItem('default_proxy') || '',
