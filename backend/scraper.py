@@ -15,15 +15,27 @@ import requests
 from bs4 import BeautifulSoup
 import trafilatura
 
-# Realistic headers to prevent blocking (let requests handle Accept-Encoding automatically)
-DEFAULT_HEADERS = {
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
-    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
-    "Accept-Language": "en-US,en;q=0.9,hi;q=0.8",
-    "DNT": "1",
-    "Connection": "keep-alive",
-    "Upgrade-Insecure-Requests": "1"
-}
+USER_AGENTS = [
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36",
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36",
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:124.0) Gecko/20100101 Firefox/124.0",
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Safari/605.1.15",
+    "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
+]
+
+def get_random_headers() -> Dict[str, str]:
+    return {
+        "User-Agent": random.choice(USER_AGENTS),
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+        "Accept-Language": "en-US,en;q=0.9",
+        "DNT": "1",
+        "Connection": "keep-alive",
+        "Upgrade-Insecure-Requests": "1",
+        "Sec-Fetch-Dest": "document",
+        "Sec-Fetch-Mode": "navigate",
+        "Sec-Fetch-Site": "none",
+        "Sec-Fetch-User": "?1"
+    }
 
 
 def normalize_proxy_url(proxy: str) -> str:
@@ -184,16 +196,29 @@ class UniversalScraper:
         effective_proxies = format_proxies(proxy) if proxy else format_proxies(self.default_proxy)
         active_proxy_str = (proxy or self.default_proxy) if effective_proxies else None
 
-        response = self.session.get(
-            url,
-            timeout=self.timeout,
-            allow_redirects=True,
-            proxies=effective_proxies
-        )
-        response.raise_for_status()
+        headers = get_random_headers()
+        try:
+            response = self.session.get(
+                url,
+                timeout=self.timeout,
+                allow_redirects=True,
+                proxies=effective_proxies,
+                headers=headers
+            )
+            response.raise_for_status()
+            content_bytes = response.content
+            final_url = str(response.url)
+            encoding = response.encoding
+            apparent_encoding = response.apparent_encoding
+        except requests.HTTPError as e:
+            # Fallback to resilient fetcher if requests hits 429 (Too Many Requests) or 403 (Forbidden)
+            if e.response is not None and e.response.status_code in (403, 429):
+                html_traf = trafilatura.fetch_url(url)
+                if html_traf:
+                    return html_traf, url, mask_proxy(active_proxy_str)
+            raise
 
         # Handle potential compressed raw content (gzip, deflate, brotli)
-        content_bytes = response.content
         if content_bytes.startswith(b'\x1f\x8b'):  # Gzip magic number
             try:
                 content_bytes = gzip.decompress(content_bytes)
@@ -212,16 +237,15 @@ class UniversalScraper:
                 pass
 
         # Determine best encoding
-        encoding = response.encoding
         if not encoding or encoding.lower() in ('iso-8859-1', 'windows-1252'):
-            encoding = response.apparent_encoding or 'utf-8'
+            encoding = apparent_encoding or 'utf-8'
 
         try:
             html_text = content_bytes.decode(encoding, errors='replace')
         except Exception:
             html_text = content_bytes.decode('utf-8', errors='replace')
             
-        return html_text, str(response.url), mask_proxy(active_proxy_str)
+        return html_text, final_url, mask_proxy(active_proxy_str)
 
     def extract_metadata(self, soup: BeautifulSoup, base_url: str) -> Dict[str, Any]:
         """Extract title, description, keywords, author, canonical URL, and OpenGraph tags."""
