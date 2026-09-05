@@ -1070,9 +1070,17 @@ function formatArticleText(text) {
 function formatMarkdown(text) {
     if (!text) return '';
     let parsed = escapeHtml(text);
+    // Bold
     parsed = parsed.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+    // Italic
     parsed = parsed.replace(/\*(.*?)\*/g, '<em>$1</em>');
-    parsed = parsed.replace(/`([^`]+)`/g, '<code>$1</code>');
+    // Inline code
+    parsed = parsed.replace(/`([^`]+)`/g, '<code class="chat-code">$1</code>');
+    // Bullet points (• or * or -)
+    parsed = parsed.replace(/(?:^|\n)[•\-\*]\s+(.+)/g, '<div class="chat-bullet"><span class="bullet-dot">•</span> <span>$1</span></div>');
+    // Chunk references e.g. [Chunk 1]
+    parsed = parsed.replace(/\[Chunk\s+(\d+)\]/gi, '<span class="chunk-ref-pill"><i class="fa-solid fa-bookmark"></i> Chunk $1</span>');
+    // Line breaks
     parsed = parsed.replace(/\n/g, '<br>');
     return parsed;
 }

@@ -312,13 +312,18 @@ Please provide a clear, accurate, and concise answer based ONLY on the context a
             try:
                 answer = self._call_huggingface_llm(user_prompt, system_prompt)
             except Exception as e:
-                # Graceful fallback if token error or rate limit
-                answer = (
-                    f"⚠️ *Hugging Face API Notice: {str(e)}*\n\n"
-                    f"**Local Extractive RAG Response:**\n"
-                    + self._extractive_smart_answer(question, retrieved_chunks)
-                )
-                model_used = "Local Fallback (HF API Error)"
+                # Clean error description without raw traceback
+                err_msg = str(e)
+                if "Failed to resolve" in err_msg or "Connection" in err_msg or "Max retries" in err_msg:
+                    notice = "*(HF API endpoint busy/unreachable — answered via Local Semantic Extractor)*"
+                elif "unauthorized" in err_msg.lower() or "401" in err_msg or "403" in err_msg:
+                    notice = "*(Invalid HF Token — answered via Local Semantic Extractor)*"
+                else:
+                    notice = "*(HF Cloud busy — answered via Local Semantic Extractor)*"
+
+                answer = self._extractive_smart_answer(question, retrieved_chunks)
+                answer = f"{answer}\n\n{notice}"
+                model_used = "Local Extractor (HF Fallback)"
         else:
             answer = self._extractive_smart_answer(question, retrieved_chunks)
 

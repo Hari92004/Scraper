@@ -1172,38 +1172,82 @@ body {
 }
 
 .chat-speech-bubble {
-    padding: 0.65rem 0.85rem;
+    padding: 0.75rem 0.95rem;
     border-radius: var(--radius-md);
-    font-size: 0.84rem;
-    line-height: 1.45;
+    font-size: 0.85rem;
+    line-height: 1.55;
+    word-break: break-word;
+    overflow-wrap: break-word;
+    max-width: 100%;
 }
 
 .bot-row .chat-speech-bubble {
-    background: rgba(19, 28, 50, 0.75);
+    background: rgba(19, 28, 50, 0.85);
     border: 1px solid var(--border-light);
     color: #f1f5f9;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
 }
 
 .user-row .chat-speech-bubble {
     background: var(--gradient-brand);
     color: #fff;
+    box-shadow: 0 4px 14px rgba(99, 102, 241, 0.3);
+}
+
+.chat-bullet {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.45rem;
+    margin: 0.35rem 0;
+    line-height: 1.45;
+}
+
+.bullet-dot {
+    color: var(--accent-cyan);
+    font-weight: 800;
+    font-size: 1rem;
+    line-height: 1.1;
+}
+
+.chunk-ref-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    background: rgba(6, 182, 212, 0.15);
+    border: 1px solid rgba(6, 182, 212, 0.35);
+    color: var(--accent-cyan);
+    font-size: 0.72rem;
+    font-weight: 600;
+    padding: 0.1rem 0.45rem;
+    border-radius: var(--radius-full);
+    margin: 0 0.2rem;
+}
+
+.chat-code {
+    background: rgba(0, 0, 0, 0.4);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: var(--accent-cyan);
+    padding: 0.1rem 0.35rem;
+    border-radius: 4px;
+    font-family: var(--font-mono);
+    font-size: 0.8rem;
 }
 
 .citations-box {
-    margin-top: 0.5rem;
-    padding-top: 0.4rem;
-    border-top: 1px dashed rgba(255, 255, 255, 0.1);
+    margin-top: 0.65rem;
+    padding-top: 0.5rem;
+    border-top: 1px dashed rgba(255, 255, 255, 0.12);
     display: flex;
     flex-direction: column;
-    gap: 0.3rem;
+    gap: 0.35rem;
 }
 
 .citation-chip {
-    background: rgba(0, 0, 0, 0.3);
+    background: rgba(0, 0, 0, 0.35);
     border: 1px solid var(--border-light);
     border-radius: var(--radius-sm);
-    padding: 0.3rem 0.45rem;
-    font-size: 0.7rem;
+    padding: 0.35rem 0.55rem;
+    font-size: 0.72rem;
     color: var(--accent-cyan);
     font-family: var(--font-mono);
 }
@@ -1211,25 +1255,26 @@ body {
 .citation-snippet {
     color: var(--text-muted);
     font-family: var(--font-sans);
-    margin-top: 0.15rem;
-    font-size: 0.68rem;
+    margin-top: 0.2rem;
+    font-size: 0.7rem;
+    line-height: 1.35;
 }
 
 /* Quick Chips */
 .chat-quick-chips {
     display: flex;
     flex-wrap: wrap;
-    gap: 0.35rem;
-    padding-bottom: 0.5rem;
+    gap: 0.4rem;
+    padding: 0.5rem 0;
 }
 
 .quick-chip {
-    background: rgba(255, 255, 255, 0.04);
+    background: rgba(255, 255, 255, 0.05);
     border: 1px solid var(--border-light);
     color: var(--text-dim);
-    padding: 0.25rem 0.55rem;
+    padding: 0.3rem 0.65rem;
     border-radius: var(--radius-full);
-    font-size: 0.72rem;
+    font-size: 0.75rem;
     cursor: pointer;
     transition: var(--transition-fast);
 }
