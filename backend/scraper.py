@@ -339,37 +339,63 @@ class UniversalScraper:
         return headings
 
     def extract_tables(self, soup: BeautifulSoup) -> List[Dict[str, Any]]:
-        """Extract HTML tables into structured rows and column headers."""
+        """Extract genuine HTML data tables into structured rows, headers, and captions."""
         tables_data = []
-        for idx, table in enumerate(soup.find_all("table")):
+        table_counter = 0
+
+        # Classes and roles commonly used for layout/warning banners rather than tabular data
+        IGNORE_CLASSES = {"ambox", "mbox", "navbox", "sidebar", "plainlinks", "metadata", "sistersitebox", "vertical-navbox"}
+
+        for table in soup.find_all("table"):
+            # Check classes
+            classes = set(table.get("class", []))
+            if any(c.lower() in IGNORE_CLASSES or c.lower().startswith("box-") for c in classes):
+                continue
+            if table.get("role") in ("presentation", "none"):
+                continue
+
+            caption = ""
+            cap_tag = table.find("caption")
+            if cap_tag:
+                caption = cap_tag.get_text(strip=True)
+
             headers = []
             rows = []
             
             thead = table.find("thead")
             if thead:
                 for th in thead.find_all(["th", "td"]):
-                    headers.append(th.get_text(strip=True))
+                    h_text = re.sub(r"\[\d+\]|\[edit\]", "", th.get_text(strip=True)).strip()
+                    headers.append(h_text)
             
             first_tr = table.find("tr")
             if not headers and first_tr:
                 th_cells = first_tr.find_all(["th", "td"])
                 if any(c.name == 'th' for c in th_cells) or len(first_tr.find_all("th")) > 0:
-                    headers = [c.get_text(strip=True) for c in th_cells]
+                    headers = [re.sub(r"\[\d+\]|\[edit\]", "", c.get_text(strip=True)).strip() for c in th_cells]
 
             tbody = table.find("tbody") or table
             for tr in tbody.find_all("tr"):
                 cells = tr.find_all(["td", "th"])
-                row_vals = [c.get_text(strip=True) for c in cells]
+                row_vals = [re.sub(r"\[\d+\]|\[edit\]", "", c.get_text(strip=True)).strip() for c in cells]
                 if row_vals and row_vals != headers:
                     rows.append(row_vals)
 
+            # Skip single-row notice layout tables (e.g. 1 row containing long warning text)
+            if len(rows) <= 1 and len(headers) <= 2:
+                combined_text = " ".join(" ".join(r) for r in rows) + " ".join(headers)
+                if any(w in combined_text.lower() for w in ["citation", "please help", "this article", "unsourced material", "encyclopedic", "discuss the issue"]):
+                    continue
+
             if rows or headers:
+                table_counter += 1
                 if not headers and rows:
                     max_cols = max(len(r) for r in rows)
                     headers = [f"Col {i+1}" for i in range(max_cols)]
                 
                 tables_data.append({
-                    "table_index": idx + 1,
+                    "table_index": table_counter,
+                    "title": caption or f"Data Table #{table_counter}",
                     "headers": headers,
                     "rows": rows,
                     "row_count": len(rows),

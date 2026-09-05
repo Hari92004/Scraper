@@ -596,16 +596,28 @@ function renderScrapedData(data) {
 
 function renderTables(tables) {
     if (!tables || tables.length === 0) {
-        dom.tablesContainer.innerHTML = '<p class="tab-empty-msg">No HTML tables found on this webpage.</p>';
+        dom.tablesContainer.innerHTML = '<p class="tab-empty-msg">No structured data tables found on this webpage.</p>';
         return;
     }
 
     let html = '';
-    tables.forEach(t => {
+    tables.forEach((t, idx) => {
+        const title = t.title || `Data Table #${t.table_index}`;
         html += `
-            <div class="extracted-table-card">
+            <div class="extracted-table-card" id="tableCard-${idx}">
                 <div class="table-card-header">
-                    <h4><i class="fa-solid fa-table-cells"></i> Table #${t.table_index} (${t.row_count} rows, ${t.col_count} cols)</h4>
+                    <div>
+                        <h4><i class="fa-solid fa-table-cells"></i> ${escapeHtml(title)}</h4>
+                        <span class="badge" style="font-size: 0.75rem; color: var(--text-muted);">${t.row_count} rows • ${t.col_count} columns</span>
+                    </div>
+                    <div style="display: flex; gap: 0.5rem;">
+                        <button class="secondary-btn" style="padding: 0.35rem 0.65rem; font-size: 0.8rem;" onclick="copyTableAsCsv(${idx})">
+                            <i class="fa-solid fa-file-csv"></i> Copy CSV
+                        </button>
+                        <button class="secondary-btn" style="padding: 0.35rem 0.65rem; font-size: 0.8rem;" onclick="copyTableAsJson(${idx})">
+                            <i class="fa-solid fa-code"></i> Copy JSON
+                        </button>
+                    </div>
                 </div>
                 <div class="table-responsive">
                     <table class="styled-data-table">
@@ -628,6 +640,32 @@ function renderTables(tables) {
     });
     dom.tablesContainer.innerHTML = html;
 }
+
+window.copyTableAsCsv = function(idx) {
+    if (!state.currentData || !state.currentData.tables || !state.currentData.tables[idx]) return;
+    const t = state.currentData.tables[idx];
+    const csvRows = [];
+    csvRows.push(t.headers.map(h => `"${(h||'').replace(/"/g, '""')}"`).join(','));
+    t.rows.forEach(r => {
+        csvRows.push(r.map(c => `"${(c||'').replace(/"/g, '""')}"`).join(','));
+    });
+    navigator.clipboard.writeText(csvRows.join('\n'));
+    alert('Table copied as CSV to clipboard!');
+};
+
+window.copyTableAsJson = function(idx) {
+    if (!state.currentData || !state.currentData.tables || !state.currentData.tables[idx]) return;
+    const t = state.currentData.tables[idx];
+    const objects = t.rows.map(row => {
+        const obj = {};
+        t.headers.forEach((h, i) => {
+            obj[h || `col_${i+1}`] = row[i] || '';
+        });
+        return obj;
+    });
+    navigator.clipboard.writeText(JSON.stringify(objects, null, 2));
+    alert('Table copied as JSON to clipboard!');
+};
 
 function renderLinks(links) {
     if (!links || links.length === 0) {
