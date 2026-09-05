@@ -315,6 +315,14 @@ if os.path.exists(FRONTEND_DIR):
             return FileResponse(index_path)
         return {"message": "Frontend index.html not found."}
 
+    @app.get("/style.css")
+    def serve_frontend_css():
+        return FileResponse(os.path.join(FRONTEND_DIR, "style.css"))
+
+    @app.get("/app.js")
+    def serve_frontend_js():
+        return FileResponse(os.path.join(FRONTEND_DIR, "app.js"))
+
 
 if __name__ == "__main__":
     import uvicorn
